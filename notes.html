@@ -54,11 +54,32 @@
     .shortcut { float:right; color:var(--muted); font-size:12px; margin-left:20px; }
     .toast { position:fixed; bottom:24px; left:50%; transform:translate(-50%,16px); background:var(--text); color:var(--bg); border-radius:8px; padding:9px 13px; opacity:0; pointer-events:none; transition:.2s; font-size:13px; }
     .toast.show { opacity:1; transform:translate(-50%,0); }
+    .auth-card { margin:70px auto; width:min(420px,calc(100% - 32px)); padding:28px; border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--shadow); }
+    .auth-card h2 { margin:0 0 6px; font-size:22px; letter-spacing:-.025em; }
+    .auth-card p { margin:0 0 20px; color:var(--muted); }
+    .auth-form { display:flex; gap:8px; }
+    .auth-form input { min-width:0; flex:1; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); padding:10px 12px; outline:none; }
+    .primary-btn { border:0; border-radius:8px; background:var(--text); color:var(--bg); padding:10px 14px; cursor:pointer; white-space:nowrap; }
+    .primary-btn:disabled { opacity:.55; cursor:wait; }
+    .auth-note { margin-top:14px!important; margin-bottom:0!important; font-size:12px; }
+    .account { display:flex; justify-content:flex-end; align-items:center; gap:7px; margin:-16px 0 12px; color:var(--muted); font-size:12px; }
+    .text-btn { border:0; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; padding:6px 8px; }
+    .text-btn:hover { background:var(--hover); color:var(--text); }
+    [hidden] { display:none!important; }
     @media (max-width:600px) { .app{width:min(100% - 24px,760px);padding-top:28px} header{align-items:flex-start}.subtitle{max-width:230px}.shortcut{display:none} }
   </style>
 </head>
 <body>
-  <main class="app">
+  <section class="auth-card" id="authCard" hidden>
+    <h2>As suas notas, em todo o lado</h2>
+    <p>Introduza o seu e-mail. Enviaremos uma ligação segura para iniciar sessão.</p>
+    <form class="auth-form" id="authForm">
+      <input id="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" required aria-label="Endereço de e-mail">
+      <button class="primary-btn" id="loginBtn" type="submit">Continuar</button>
+    </form>
+    <p class="auth-note" id="authMessage">Não precisa de criar nem memorizar uma palavra-passe.</p>
+  </section>
+  <main class="app" id="app" hidden>
     <header>
       <div><h1>Notas</h1><p class="subtitle">Um espaço simples para aquilo que não quer esquecer.</p></div>
       <div class="toolbar">
@@ -67,6 +88,7 @@
         <button class="icon-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema">◐</button>
       </div>
     </header>
+    <div class="account"><span id="accountEmail"></span><button class="text-btn" id="logoutBtn">Terminar sessão</button></div>
     <div class="search-row">
       <input class="search" id="search" type="search" placeholder="Pesquisar notas…" aria-label="Pesquisar notas">
       <span class="result-count" id="resultCount" aria-live="polite"></span>
@@ -86,14 +108,51 @@
     <button data-command="selectAll">Selecionar tudo <span class="shortcut">Ctrl+A</span></button>
   </div>
   <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (() => {
       const KEY='notas-minimalistas-v1';
+      // Preencha estes dois valores no painel Supabase: Project Settings → API.
+      const SUPABASE_URL='COLE_AQUI_O_PROJECT_URL';
+      const SUPABASE_PUBLISHABLE_KEY='COLE_AQUI_A_PUBLISHABLE_KEY';
       const $=s=>document.querySelector(s), notesEl=$('#notes'), status=$('#status'), menu=$('#editMenu');
-      let notes=load(), active=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, resultIndex=-1;
+      let notes=load(), active=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
+      let client=null, session=null, channel=null, applyingRemote=false, currentUserId=null;
       function load(){ try { const data=JSON.parse(localStorage.getItem(KEY)); return Array.isArray(data)?data:[]; } catch { return []; } }
-      function persist(){ localStorage.setItem(KEY,JSON.stringify(notes)); status.textContent='Guardado neste dispositivo · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}); }
+      function persist(){
+        localStorage.setItem(KEY,JSON.stringify(notes));
+        status.textContent=session?'A sincronizar…':'Guardado neste dispositivo';
+        if(session&&!applyingRemote){ clearTimeout(remoteTimer); remoteTimer=setTimeout(syncRemote,300); }
+      }
       function scheduleSave(){ clearTimeout(saveTimer); status.textContent='A guardar…'; saveTimer=setTimeout(persist,180); }
+      async function syncRemote(){
+        if(!client||!session)return;
+        try {
+          const rows=notes.map((n,i)=>({id:n.id,user_id:session.user.id,text:n.text,position:i,created_at:n.createdAt,updated_at:n.updatedAt}));
+          if(rows.length){ const {error}=await client.from('notes').upsert(rows,{onConflict:'id'}); if(error)throw error; }
+          const {data:existing,error:readError}=await client.from('notes').select('id'); if(readError)throw readError;
+          const ids=new Set(notes.map(n=>n.id));
+          const stale=(existing||[]).filter(row=>!ids.has(row.id)).map(row=>row.id);
+          if(stale.length){ const {error}=await client.from('notes').delete().in('id',stale); if(error)throw error; }
+          status.textContent='Sincronizado · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+        } catch(error){ console.error(error); status.textContent='Erro de sincronização'; toast('Não foi possível sincronizar'); }
+      }
+      async function loadRemote({offerMigration=false}={}){
+        const {data,error}=await client.from('notes').select('id,text,position,created_at,updated_at').order('position');
+        if(error){ console.error(error); status.textContent='Erro ao carregar notas'; return; }
+        if(offerMigration&&data.length===0&&notes.length&&confirm(`Encontrámos ${notes.length} ${notes.length===1?'nota':'notas'} neste navegador. Enviar para a sua conta?`)){
+          await syncRemote(); toast('Notas migradas para a sua conta'); return;
+        }
+        applyingRemote=true;
+        notes=(data||[]).map(row=>({id:row.id,text:row.text,createdAt:row.created_at,updatedAt:row.updated_at}));
+        localStorage.setItem(KEY,JSON.stringify(notes)); applyingRemote=false; render(); status.textContent='Sincronizado';
+      }
+      function subscribe(){
+        if(channel)client.removeChannel(channel);
+        channel=client.channel('notes-'+session.user.id).on('postgres_changes',{event:'*',schema:'public',table:'notes',filter:`user_id=eq.${session.user.id}`},()=>{
+          if(!active)loadRemote();
+        }).subscribe();
+      }
       function esc(s=''){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
       function highlighted(text,q){
         const safe=esc(text); if(!q)return safe;
@@ -165,8 +224,43 @@
       const savedTheme=localStorage.getItem('notas-theme'); if(savedTheme)document.documentElement.dataset.theme=savedTheme;
       $('#themeBtn').onclick=()=>{ const next=document.documentElement.dataset.theme==='dark'?'light':'dark'; document.documentElement.dataset.theme=next; localStorage.setItem('notas-theme',next); };
       document.addEventListener('keydown',e=>{ if(e.key==='F3'){ e.preventDefault(); nextResult(e.shiftKey); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); add(); } if(e.key==='Escape')finish(); });
-      window.addEventListener('beforeunload',()=>{ if(active){ const n=notes.find(x=>x.id===active.dataset.id); if(n)n.text=active.innerText; } persist(); });
-      render(); status.textContent=notes.length?'Guardado neste dispositivo':'Pronto para começar';
+      window.addEventListener('beforeunload',()=>{ if(active){ const n=notes.find(x=>x.id===active.dataset.id); if(n)n.text=active.innerText; } localStorage.setItem(KEY,JSON.stringify(notes)); });
+      async function showSession(nextSession,{offerMigration=false}={}){
+        session=nextSession;
+        if(!session){
+          currentUserId=null; $('#app').hidden=true; $('#authCard').hidden=false;
+          if(channel&&client){ client.removeChannel(channel); channel=null; }
+          return;
+        }
+        const changed=currentUserId!==session.user.id; currentUserId=session.user.id;
+        $('#authCard').hidden=true; $('#app').hidden=false; $('#accountEmail').textContent=session.user.email||'';
+        await loadRemote({offerMigration:offerMigration&&changed}); subscribe();
+      }
+      $('#authForm').addEventListener('submit',async e=>{
+        e.preventDefault(); const button=$('#loginBtn'),email=$('#email').value.trim();
+        button.disabled=true; $('#authMessage').textContent='A enviar a ligação…';
+        const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+        button.disabled=false;
+        $('#authMessage').textContent=error?`Erro: ${error.message}`:'Ligação enviada. Consulte o seu e-mail.';
+      });
+      $('#logoutBtn').onclick=async()=>{ await syncRemote(); await client.auth.signOut(); };
+      async function init(){
+        const configured=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('COLE_AQUI')&&!SUPABASE_PUBLISHABLE_KEY.includes('COLE_AQUI');
+        $('#authCard').hidden=false;
+        if(!configured){
+          $('#authForm').hidden=true;
+          $('#authMessage').innerHTML='Configure <strong>SUPABASE_URL</strong> e <strong>SUPABASE_PUBLISHABLE_KEY</strong> no código de notes.html. Consulte CONFIGURAR-SUPABASE.md.';
+          return;
+        }
+        client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+        const {data:{session:initialSession}}=await client.auth.getSession();
+        await showSession(initialSession,{offerMigration:true});
+        client.auth.onAuthStateChange((event,nextSession)=>{
+          if(event==='SIGNED_IN'&&nextSession?.user.id===currentUserId)return;
+          setTimeout(()=>showSession(nextSession,{offerMigration:event==='SIGNED_IN'}),0);
+        });
+      }
+      render(); init();
     })();
   </script>
 </body>
