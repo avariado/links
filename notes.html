@@ -114,7 +114,19 @@
         if(focusId) requestAnimationFrame(()=>edit(notesEl.querySelector(`[data-id="${focusId}"]`)));
       }
       function add(){ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
-      function edit(el){ if(!el||el===active) return; finish(); active=el; const n=notes.find(x=>x.id===el.dataset.id); el.contentEditable='true'; el.textContent=n.text; el.focus(); const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+      function edit(el){
+        if(!el||el===active)return;
+        const id=el.dataset.id;
+        finish();
+        // finish() reconstrói a lista; recuperar o elemento atual evita editar uma referência já removida.
+        el=notesEl.querySelector(`[data-id="${id}"]`);
+        if(!el)return;
+        active=el;
+        const n=notes.find(x=>x.id===id);
+        el.contentEditable='true'; el.textContent=n.text; el.focus();
+        const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
+        const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+      }
       function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ n.text=active.innerText.replace(/\n+$/,''); n.updatedAt=new Date().toISOString(); } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); }
       function remove(id){ const n=notes.find(x=>x.id===id); if(n&&confirm(`Eliminar esta nota?\n\n${n.text.slice(0,100)}`)){ notes=notes.filter(x=>x.id!==id); persist(); render(); toast('Nota eliminada'); } }
       function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
