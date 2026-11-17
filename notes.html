@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Notas</title>
+  <style>
+    :root { --bg:#f7f7f5; --paper:#fff; --text:#252525; --muted:#787774; --line:#e7e7e4; --hover:#f1f1ef; --accent:#2383e2; --danger:#eb5757; --shadow:0 12px 36px rgba(15,15,15,.12); }
+    [data-theme="dark"] { --bg:#191919; --paper:#202020; --text:#efefef; --muted:#9b9b9b; --line:#333; --hover:#292929; --accent:#529cca; --danger:#ff7369; --shadow:0 14px 40px rgba(0,0,0,.38); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:15px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,input { font:inherit; }
+    button { color:inherit; }
+    .app { width:min(760px,calc(100% - 32px)); margin:0 auto; padding:52px 0 100px; }
+    header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:26px; }
+    h1 { margin:0; font-size:30px; letter-spacing:-.035em; line-height:1.15; }
+    .subtitle { margin:5px 0 0; color:var(--muted); font-size:13px; }
+    .toolbar { display:flex; align-items:center; gap:6px; }
+    .icon-btn,.add-btn,.menu button { border:0; background:transparent; cursor:pointer; border-radius:7px; }
+    .icon-btn { width:34px; height:34px; display:grid; place-items:center; color:var(--muted); }
+    .icon-btn:hover,.icon-btn:focus-visible,.menu button:hover { background:var(--hover); color:var(--text); }
+    .search-row { display:flex; align-items:center; gap:7px; margin-bottom:14px; }
+    .search { min-width:0; flex:1; border:1px solid var(--line); background:var(--paper); color:var(--text); border-radius:9px; padding:10px 12px; outline:none; }
+    .search:focus { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent); }
+    .result-count { min-width:45px; text-align:center; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+    .nav-btn { width:34px; height:38px; border:1px solid var(--line); background:var(--paper); border-radius:8px; cursor:pointer; color:var(--muted); }
+    .nav-btn:hover:not(:disabled) { background:var(--hover); color:var(--text); }
+    .nav-btn:disabled { opacity:.35; cursor:default; }
+    .notes { position:relative; }
+    .note { position:relative; min-height:46px; padding:11px 42px 11px 14px; border-bottom:1px solid var(--line); background:transparent; cursor:text; white-space:pre-wrap; overflow-wrap:anywhere; outline:none; transition:background .12s,opacity .12s; }
+    .note:first-child { border-top:1px solid var(--line); }
+    .note:hover { background:var(--hover); }
+    .note:focus { background:var(--paper); box-shadow:inset 3px 0 var(--accent); }
+    .note a { color:var(--accent); text-decoration:none; }
+    .note a:hover { text-decoration:underline; }
+    mark { background:#ffe66a; color:#242424; border-radius:3px; padding:0 1px; }
+    mark.current { background:#ffb224; outline:2px solid color-mix(in srgb,#ffb224 38%,transparent); }
+    .note::after { content:"⋮⋮"; position:absolute; right:13px; top:12px; color:var(--muted); opacity:0; letter-spacing:-3px; cursor:grab; }
+    .note:hover::after,.note:focus::after { opacity:.65; }
+    .note.dragging { opacity:.35; }
+    .drop-line { height:2px; background:var(--accent); position:absolute; left:0; right:0; z-index:4; pointer-events:none; border-radius:2px; box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent); }
+    .empty { text-align:center; padding:64px 20px; color:var(--muted); }
+    .empty strong { display:block; color:var(--text); font-size:16px; margin-bottom:3px; }
+    .add-btn { width:100%; margin-top:14px; padding:10px 12px; text-align:left; color:var(--muted); }
+    .add-btn:hover { background:var(--hover); color:var(--text); }
+    .status { min-height:22px; margin-top:12px; color:var(--muted); font-size:12px; text-align:right; }
+    .menu { position:fixed; z-index:20; min-width:185px; padding:6px; border:1px solid var(--line); border-radius:10px; background:var(--paper); box-shadow:var(--shadow); display:none; }
+    .menu.open { display:block; }
+    .menu button { width:100%; padding:7px 10px; text-align:left; }
+    .menu hr { border:0; border-top:1px solid var(--line); margin:5px 2px; }
+    .shortcut { float:right; color:var(--muted); font-size:12px; margin-left:20px; }
+    .toast { position:fixed; bottom:24px; left:50%; transform:translate(-50%,16px); background:var(--text); color:var(--bg); border-radius:8px; padding:9px 13px; opacity:0; pointer-events:none; transition:.2s; font-size:13px; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    @media (max-width:600px) { .app{width:min(100% - 24px,760px);padding-top:28px} header{align-items:flex-start}.subtitle{max-width:230px}.shortcut{display:none} }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div><h1>Notas</h1><p class="subtitle">Um espaço simples para aquilo que não quer esquecer.</p></div>
+      <div class="toolbar">
+        <button class="icon-btn" id="importBtn" title="Importar notes.json" aria-label="Importar notes.json">↑</button>
+        <button class="icon-btn" id="exportBtn" title="Exportar notes.json" aria-label="Exportar notes.json">↓</button>
+        <button class="icon-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema">◐</button>
+      </div>
+    </header>
+    <div class="search-row">
+      <input class="search" id="search" type="search" placeholder="Pesquisar notas…" aria-label="Pesquisar notas">
+      <span class="result-count" id="resultCount" aria-live="polite"></span>
+      <button class="nav-btn" id="prevResult" title="Resultado anterior (Shift+F3)" aria-label="Resultado anterior">↑</button>
+      <button class="nav-btn" id="nextResult" title="Resultado seguinte (F3)" aria-label="Resultado seguinte">↓</button>
+    </div>
+    <section class="notes" id="notes" aria-live="polite"></section>
+    <button class="add-btn" id="addBtn">＋ Adicionar uma nota</button>
+    <div class="status" id="status"></div>
+  </main>
+  <input id="fileInput" type="file" accept="application/json,.json" hidden>
+  <div class="menu" id="editMenu" role="menu">
+    <button data-command="cut">Cortar <span class="shortcut">Ctrl+X</span></button>
+    <button data-command="copy">Copiar <span class="shortcut">Ctrl+C</span></button>
+    <button data-command="paste">Colar <span class="shortcut">Ctrl+V</span></button>
+    <hr>
+    <button data-command="selectAll">Selecionar tudo <span class="shortcut">Ctrl+A</span></button>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script>
+    (() => {
+      const KEY='notas-minimalistas-v1';
+      const $=s=>document.querySelector(s), notesEl=$('#notes'), status=$('#status'), menu=$('#editMenu');
+      let notes=load(), active=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, resultIndex=-1;
+      function load(){ try { const data=JSON.parse(localStorage.getItem(KEY)); return Array.isArray(data)?data:[]; } catch { return []; } }
+      function persist(){ localStorage.setItem(KEY,JSON.stringify(notes)); status.textContent='Guardado neste dispositivo · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}); }
+      function scheduleSave(){ clearTimeout(saveTimer); status.textContent='A guardar…'; saveTimer=setTimeout(persist,180); }
+      function esc(s=''){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+      function highlighted(text,q){
+        const safe=esc(text); if(!q)return safe;
+        const pattern=esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        return safe.replace(new RegExp(pattern,'gi'),m=>`<mark>${m}</mark>`);
+      }
+      function linked(text,q){
+        const urlRe=/https?:\/\/[^\s]+/gi; let out='',last=0,match;
+        while((match=urlRe.exec(text))){ out+=highlighted(text.slice(last,match.index),q); const url=match[0]; out+=`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${highlighted(url,q)}</a>`; last=match.index+url.length; }
+        return (out+highlighted(text.slice(last),q)).replace(/\n/g,'<br>');
+      }
+      function render(focusId){
+        const q=$('#search').value.trim().toLocaleLowerCase('pt-PT'); notesEl.innerHTML='';
+        const shown=notes.filter(n=>!q||n.text.toLocaleLowerCase('pt-PT').includes(q));
+        if(!shown.length){ notesEl.innerHTML=`<div class="empty"><strong>${q?'Nenhuma nota encontrada':'Ainda não há notas'}</strong>${q?'Experimente outra pesquisa.':'Clique abaixo e escreva a primeira.'}</div>`; updateSearchControls(0,q); return; }
+        shown.forEach(n=>{ const el=document.createElement('div'); el.className='note'; el.dataset.id=n.id; el.tabIndex=0; el.innerHTML=linked(n.text,q)||'<span style="color:var(--muted)">Nota vazia</span>'; notesEl.appendChild(el); });
+        const total=notesEl.querySelectorAll('mark').length; resultIndex=-1;
+        updateSearchControls(total,q);
+        if(q) status.textContent=total?`${total} ${total===1?'resultado':'resultados'} · F3 para navegar`:'Sem resultados';
+        if(focusId) requestAnimationFrame(()=>edit(notesEl.querySelector(`[data-id="${focusId}"]`)));
+      }
+      function add(){ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
+      function edit(el){ if(!el||el===active) return; finish(); active=el; const n=notes.find(x=>x.id===el.dataset.id); el.contentEditable='true'; el.textContent=n.text; el.focus(); const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+      function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ n.text=active.innerText.replace(/\n+$/,''); n.updatedAt=new Date().toISOString(); } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); }
+      function remove(id){ const n=notes.find(x=>x.id===id); if(n&&confirm(`Eliminar esta nota?\n\n${n.text.slice(0,100)}`)){ notes=notes.filter(x=>x.id!==id); persist(); render(); toast('Nota eliminada'); } }
+      function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
+      function openMenu(x,y){ menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
+      function closeMenu(){ menu.classList.remove('open'); }
+      notesEl.addEventListener('click',e=>{ const el=e.target.closest('.note'); if(!el)return; if(e.target.closest('a')) return; edit(el); });
+      notesEl.addEventListener('input',()=>{ if(active) status.textContent='A guardar…'; });
+      notesEl.addEventListener('contextmenu',e=>{ const el=e.target.closest('.note'); if(!el)return; e.preventDefault(); if(el===active) openMenu(e.clientX,e.clientY); else remove(el.dataset.id); });
+      document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.menu')&&!e.target.closest('.note')) finish(); else if(!e.target.closest('.menu')) closeMenu(); });
+      menu.addEventListener('pointerdown',e=>e.preventDefault());
+      menu.addEventListener('click',async e=>{ const cmd=e.target.closest('button')?.dataset.command; if(!cmd||!active)return; active.focus(); if(cmd==='paste'){ try { document.execCommand('insertText',false,await navigator.clipboard.readText()); } catch { toast('Use Ctrl+V para colar'); } } else document.execCommand(cmd); closeMenu(); });
+      notesEl.addEventListener('pointerdown',e=>{ const el=e.target.closest('.note'); if(!el||el===active||e.button!==0)return; pressTimer=setTimeout(()=>startDrag(el,e.pointerId),420); });
+      function startDrag(el,pointerId){ drag=el; el.classList.add('dragging'); el.setPointerCapture?.(pointerId); document.body.style.userSelect='none'; }
+      notesEl.addEventListener('pointermove',e=>{ if(!drag)return; const els=[...notesEl.querySelectorAll('.note:not(.dragging)')]; dropIndex=els.findIndex(el=>e.clientY<el.getBoundingClientRect().top+el.offsetHeight/2); if(dropIndex<0)dropIndex=els.length; let line=$('.drop-line'); if(!line){ line=document.createElement('div'); line.className='drop-line'; notesEl.appendChild(line); } const ref=els[dropIndex]; line.style.top=(ref?ref.offsetTop:notesEl.scrollHeight)+'px'; });
+      function endDrag(){ clearTimeout(pressTimer); if(!drag)return; const id=drag.dataset.id, from=notes.findIndex(n=>n.id===id); const [n]=notes.splice(from,1); notes.splice(dropIndex??from,0,n); drag.classList.remove('dragging'); drag=null; dropIndex=null; document.body.style.userSelect=''; $('.drop-line')?.remove(); persist(); render(); toast('Nota reorganizada'); }
+      notesEl.addEventListener('pointerup',endDrag); notesEl.addEventListener('pointercancel',endDrag); document.addEventListener('pointerup',()=>clearTimeout(pressTimer));
+      function nextResult(back=false){
+        const marks=[...notesEl.querySelectorAll('mark')]; if(!marks.length)return;
+        marks.forEach(m=>m.classList.remove('current'));
+        resultIndex=(resultIndex+(back?-1:1)+marks.length)%marks.length;
+        marks[resultIndex].classList.add('current'); marks[resultIndex].scrollIntoView({behavior:'smooth',block:'center'});
+        $('#resultCount').textContent=`${resultIndex+1} / ${marks.length}`;
+        status.textContent=`Resultado ${resultIndex+1} de ${marks.length}`;
+      }
+      function updateSearchControls(total,q){
+        $('#resultCount').textContent=q?(total?`0 / ${total}`:'0 / 0'):'';
+        $('#prevResult').disabled=$('#nextResult').disabled=!total;
+      }
+      $('#addBtn').onclick=add; $('#search').oninput=()=>render();
+      $('#prevResult').onclick=()=>nextResult(true); $('#nextResult').onclick=()=>nextResult(false);
+      $('#exportBtn').onclick=()=>{ finish(); const blob=new Blob([JSON.stringify(notes,null,2)],{type:'application/json'}),a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='notes.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('notes.json exportado'); };
+      $('#importBtn').onclick=()=>$('#fileInput').click();
+      $('#fileInput').onchange=async e=>{ try { const data=JSON.parse(await e.target.files[0].text()); if(!Array.isArray(data))throw 0; if(notes.length&&!confirm('Substituir as notas atuais pelas notas do ficheiro?'))return; notes=data.map(n=>({id:n.id||crypto.randomUUID(),text:String(n.text||''),createdAt:n.createdAt||new Date().toISOString(),updatedAt:n.updatedAt||new Date().toISOString()})); persist(); render(); toast('Notas importadas'); } catch { alert('O ficheiro não contém notas válidas.'); } e.target.value=''; };
+      const savedTheme=localStorage.getItem('notas-theme'); if(savedTheme)document.documentElement.dataset.theme=savedTheme;
+      $('#themeBtn').onclick=()=>{ const next=document.documentElement.dataset.theme==='dark'?'light':'dark'; document.documentElement.dataset.theme=next; localStorage.setItem('notas-theme',next); };
+      document.addEventListener('keydown',e=>{ if(e.key==='F3'){ e.preventDefault(); nextResult(e.shiftKey); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); add(); } if(e.key==='Escape')finish(); });
+      window.addEventListener('beforeunload',()=>{ if(active){ const n=notes.find(x=>x.id===active.dataset.id); if(n)n.text=active.innerText; } persist(); });
+      render(); status.textContent=notes.length?'Guardado neste dispositivo':'Pronto para começar';
+    })();
+  </script>
+</body>
+</html>
