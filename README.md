@@ -1,2 +1,2 @@
 # Links
-https://avariado.github.io/links/index.html
+https://avariado.github.io/pages/index.html
