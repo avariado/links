@@ -113,8 +113,8 @@
     (() => {
       const KEY='notas-minimalistas-v1';
       // Preencha estes dois valores no painel Supabase: Project Settings → API.
-      const SUPABASE_URL='COLE_AQUI_O_PROJECT_URL';
-      const SUPABASE_PUBLISHABLE_KEY='COLE_AQUI_A_PUBLISHABLE_KEY';
+      const SUPABASE_URL='https://whhbsxugpzxlqanbhnwl.supabase.co/rest/v1/';
+      const SUPABASE_PUBLISHABLE_KEY='sb_publishable_9ueIri6x_9BJpBh9yXchZw_kkfpk8kw';
       const $=s=>document.querySelector(s), notesEl=$('#notes'), status=$('#status'), menu=$('#editMenu');
       let notes=load(), active=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
       let client=null, session=null, channel=null, applyingRemote=false, currentUserId=null;
