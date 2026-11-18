@@ -219,7 +219,7 @@
         if(q) status.textContent=total?`${total} ${total===1?'resultado':'resultados'} · F3 para navegar`:'Sem resultados';
         if(focusId) requestAnimationFrame(()=>edit(notesEl.querySelector(`[data-id="${focusId}"]`)));
       }
-      function add(){ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
+      function add(){ finish(); /* fecha e guarda primeiro a nota em edição, enquanto ainda está no ecrã */ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
       function edit(el){
         if(!el||el===active)return;
         const id=el.dataset.id;
@@ -248,6 +248,7 @@
       // O símbolo de arrastar (.grip) nunca elimina: serve para reordenar.
       function longPressDelete(id){
         if(longDone)return; longDone=true; clearTimeout(delTimer);
+        finish(); // guarda a nota em edição (se houver) antes de a lista ser reconstruída
         ignoreClick=true; remove(id); // o clique que se segue ao levantar o dedo/rato é ignorado (ver pointerup abaixo)
       }
       function releaseClickGuard(){ if(ignoreClick&&!drag)setTimeout(()=>{ ignoreClick=false; },350); }
@@ -273,6 +274,7 @@
         else delTimer=setTimeout(()=>longPressDelete(el.dataset.id),600);
       });
       function startDrag(el,pointerId){
+        if(active){ const id=el.dataset.id; finish(); el=notesEl.querySelector(`[data-id="${id}"]`); if(!el)return; } // guarda a nota em edição antes de reordenar
         drag=el; el.classList.add('dragging');
         try { el.setPointerCapture?.(pointerId); } catch {}
         document.body.style.userSelect='none';
