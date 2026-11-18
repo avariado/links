@@ -359,6 +359,8 @@
           const {error}=await client.auth.updateUser({password}); button.disabled=false;
           if(error){ $('#authMessage').textContent=`Erro: ${error.message}`; return; }
           authMode='login'; $('#email').disabled=false; $('#email').hidden=false; $('#signupBtn').hidden=false; $('#forgotBtn').hidden=false; button.textContent='Entrar';
+          $('#password').value=''; $('#password').placeholder='Palavra-passe'; $('#password').autocomplete='current-password';
+          try { if(location.hash||location.search) history.replaceState(null,'',location.pathname); } catch {} // remove o token do endereço
           $('#authMessage').textContent='Palavra-passe definida. A abrir as notas…'; await showSession((await client.auth.getSession()).data.session);
           return;
         }
@@ -389,6 +391,13 @@
         $('#authMessage').textContent=error?`Erro: ${error.message}`:'E-mail enviado. Abra a ligação para definir uma nova palavra-passe.';
       };
       $('#logoutBtn').onclick=async()=>{ await syncRemote(); await client.auth.signOut(); };
+      // Ecrã "definir nova palavra-passe" (aberto pela ligação enviada por e-mail).
+      function enterRecovery(nextSession){
+        session=nextSession; authMode='recovery'; $('#app').hidden=true; $('#authCard').hidden=false;
+        $('#email').disabled=true; $('#email').hidden=true; $('#signupBtn').hidden=true; $('#forgotBtn').hidden=true;
+        $('#password').value=''; $('#password').placeholder='Nova palavra-passe'; $('#password').autocomplete='new-password';
+        $('#loginBtn').textContent='Guardar palavra-passe'; $('#authMessage').textContent='Escolha agora a sua nova palavra-passe.';
+      }
       async function init(){
         const configured=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('COLE_AQUI')&&!SUPABASE_PUBLISHABLE_KEY.includes('COLE_AQUI');
         $('#authCard').hidden=false;
@@ -409,19 +418,18 @@
           $('#authMessage').textContent='O SUPABASE_URL não parece pertencer a um projeto Supabase.';
           return;
         }
+        // Ler a ligação do e-mail ANTES de criar o cliente (que limpa o endereço). O evento PASSWORD_RECOVERY
+        // dispara durante a criação do cliente, antes de existir quem o ouça; por isso deteta-se também pelo endereço.
+        const linkParams=new URLSearchParams(location.hash.replace(/^#/,'')+'&'+location.search.replace(/^\?/,''));
+        const recoveryLink=linkParams.get('type')==='recovery', linkError=linkParams.get('error_description');
         client=window.supabase.createClient(normalizedProjectUrl,SUPABASE_PUBLISHABLE_KEY);
         const {data:{session:initialSession}}=await client.auth.getSession();
-        await showSession(initialSession,{offerMigration:true});
+        if(recoveryLink&&initialSession) enterRecovery(initialSession);
+        else await showSession(initialSession,{offerMigration:true});
+        if(linkError&&!initialSession) $('#authMessage').textContent='A ligação do e-mail é inválida ou expirou. Peça novamente a recuperação da palavra-passe.';
         client.auth.onAuthStateChange((event,nextSession)=>{
-          if(event==='PASSWORD_RECOVERY'){
-            setTimeout(()=>{
-              session=nextSession; authMode='recovery'; $('#app').hidden=true; $('#authCard').hidden=false;
-              $('#email').disabled=true; $('#email').hidden=true; $('#signupBtn').hidden=true; $('#forgotBtn').hidden=true;
-              $('#password').value=''; $('#password').placeholder='Nova palavra-passe'; $('#password').autocomplete='new-password';
-              $('#loginBtn').textContent='Guardar palavra-passe'; $('#authMessage').textContent='Escolha agora a sua nova palavra-passe.';
-            },0);
-            return;
-          }
+          if(event==='PASSWORD_RECOVERY'){ setTimeout(()=>enterRecovery(nextSession),0); return; }
+          if(authMode==='recovery'&&event!=='SIGNED_OUT')return; // durante a definição da palavra-passe, não abrir as notas
           if(event==='SIGNED_IN'&&nextSession?.user.id===currentUserId)return;
           setTimeout(()=>showSession(nextSession,{offerMigration:event==='SIGNED_IN'}),0);
         });
