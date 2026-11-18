@@ -254,17 +254,19 @@
           $('#authMessage').innerHTML='Configure <strong>SUPABASE_URL</strong> e <strong>SUPABASE_PUBLISHABLE_KEY</strong> no código de notes.html. Consulte CONFIGURAR-SUPABASE.md.';
           return;
         }
+        let normalizedProjectUrl;
         try {
           const projectUrl=new URL(SUPABASE_URL);
-          if(projectUrl.pathname!=='/'||(!projectUrl.hostname.endsWith('.supabase.co')&&!projectUrl.hostname.endsWith('.supabase.net'))){
+          if(!projectUrl.hostname.endsWith('.supabase.co')&&!projectUrl.hostname.endsWith('.supabase.net')){
             throw new Error('URL inesperado');
           }
+          normalizedProjectUrl=projectUrl.origin;
         } catch {
           $('#authForm').hidden=true;
-          $('#authMessage').textContent='O SUPABASE_URL não parece ser o Project URL. Deve ter o formato https://xxxxxxxx.supabase.co, sem caminhos adicionais.';
+          $('#authMessage').textContent='O SUPABASE_URL não parece pertencer a um projeto Supabase.';
           return;
         }
-        client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+        client=window.supabase.createClient(normalizedProjectUrl,SUPABASE_PUBLISHABLE_KEY);
         const {data:{session:initialSession}}=await client.auth.getSession();
         await showSession(initialSession,{offerMigration:true});
         client.auth.onAuthStateChange((event,nextSession)=>{
