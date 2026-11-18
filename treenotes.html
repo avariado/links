@@ -263,7 +263,25 @@
           const href=a.getAttribute('href')||'', txt=a.textContent.replace(/\s+/g,' ').trim();
           a.replaceWith(document.createTextNode(!txt||/^https?:\/\//i.test(txt)?(txt||href):mdLink(txt,href)));
         });
-        return el.innerText.replace(/\n+$/,'');
+        return domText(el);
+      }
+      // Lê o texto da nota aberta linha a linha. O innerText do navegador conta duas quebras por cada linha
+      // em branco criada com Enter (<div><br></div>), o que fazia as linhas em branco duplicarem-se ao gravar.
+      function domText(root){
+        const lines=[''], st={brk:false};
+        const nl=()=>{ lines.push(''); st.brk=false; };
+        const put=s=>{ if(st.brk)nl(); lines[lines.length-1]+=s; };
+        const isBlock=n=>{ const d=getComputedStyle(n).display; return !/^inline/.test(d)&&d!=='none'&&d!=='contents'; };
+        (function walk(n,isRoot){
+          if(n.nodeType===3){ n.textContent.split('\n').forEach((p,i)=>{ if(i)nl(); if(p)put(p); }); return; }
+          if(n.nodeType!==1)return;
+          if(n.tagName==='BR'){ const p=n.parentNode; if(!n.nextSibling&&(p===root||isBlock(p)))return; nl(); return; } // <br> final de uma linha não conta
+          const blk=!isRoot&&isBlock(n);
+          if(blk&&(st.brk||lines[lines.length-1]!==''))nl();
+          n.childNodes.forEach(c=>walk(c,false));
+          if(blk)st.brk=true;
+        })(root,true);
+        return lines.join('\n').replace(/\n+$/,'');
       }
       // Colar do navegador: se o conteúdo tem ligações (título clicável), converte-as em "[título](endereço)".
       function clipToText(html){
