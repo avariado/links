@@ -239,7 +239,9 @@
       $('#authForm').addEventListener('submit',async e=>{
         e.preventDefault(); const button=$('#loginBtn'),email=$('#email').value.trim();
         button.disabled=true; $('#authMessage').textContent='A enviar a ligação…';
-        const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+        const redirectTo=/^https?:$/.test(location.protocol)?location.origin+location.pathname:null;
+        const credentials=redirectTo?{email,options:{emailRedirectTo:redirectTo}}:{email};
+        const {error}=await client.auth.signInWithOtp(credentials);
         button.disabled=false;
         $('#authMessage').textContent=error?`Erro: ${error.message}`:'Ligação enviada. Consulte o seu e-mail.';
       });
@@ -250,6 +252,16 @@
         if(!configured){
           $('#authForm').hidden=true;
           $('#authMessage').innerHTML='Configure <strong>SUPABASE_URL</strong> e <strong>SUPABASE_PUBLISHABLE_KEY</strong> no código de notes.html. Consulte CONFIGURAR-SUPABASE.md.';
+          return;
+        }
+        try {
+          const projectUrl=new URL(SUPABASE_URL);
+          if(projectUrl.pathname!=='/'||(!projectUrl.hostname.endsWith('.supabase.co')&&!projectUrl.hostname.endsWith('.supabase.net'))){
+            throw new Error('URL inesperado');
+          }
+        } catch {
+          $('#authForm').hidden=true;
+          $('#authMessage').textContent='O SUPABASE_URL não parece ser o Project URL. Deve ter o formato https://xxxxxxxx.supabase.co, sem caminhos adicionais.';
           return;
         }
         client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
