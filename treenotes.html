@@ -1,329 +1,3014 @@
-<!doctype html>
-<html lang="pt-PT">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
-  <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
-  <title>Notas</title>
-  <style>
-    :root { --bg:#f7f7f5; --paper:#fff; --text:#252525; --muted:#787774; --line:#e7e7e4; --hover:#f1f1ef; --accent:#2383e2; --danger:#eb5757; --shadow:0 12px 36px rgba(15,15,15,.12); }
-    [data-theme="dark"] { --bg:#191919; --paper:#202020; --text:#efefef; --muted:#9b9b9b; --line:#333; --hover:#292929; --accent:#529cca; --danger:#ff7369; --shadow:0 14px 40px rgba(0,0,0,.38); }
-    * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:15px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    button,input { font:inherit; }
-    button { color:inherit; }
-    .app { width:min(760px,calc(100% - 32px)); margin:0 auto; padding:52px 0 100px; }
-    header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:26px; }
-    h1 { margin:0; font-size:30px; letter-spacing:-.035em; line-height:1.15; }
-    .toolbar { display:flex; align-items:center; gap:6px; }
-    .icon-btn,.add-btn,.menu button { border:0; background:transparent; cursor:pointer; border-radius:7px; }
-    .icon-btn { width:34px; height:34px; display:grid; place-items:center; color:var(--muted); }
-    .icon-btn:hover,.icon-btn:focus-visible,.menu button:hover { background:var(--hover); color:var(--text); }
-    .search-row { display:flex; align-items:center; gap:7px; margin-bottom:14px; }
-    .search { min-width:0; flex:1; border:1px solid var(--line); background:var(--paper); color:var(--text); border-radius:9px; padding:10px 12px; outline:none; }
-    .search:focus { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent); }
-    .result-count { min-width:45px; text-align:center; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
-    .nav-btn { width:34px; height:38px; border:1px solid var(--line); background:var(--paper); border-radius:8px; cursor:pointer; color:var(--muted); }
-    .nav-btn:hover:not(:disabled) { background:var(--hover); color:var(--text); }
-    .nav-btn:disabled { opacity:.35; cursor:default; }
-    .notes { position:relative; }
-    .note { position:relative; min-height:46px; padding:11px 42px 11px 14px; border-bottom:1px solid var(--line); background:transparent; cursor:text; white-space:pre-wrap; overflow-wrap:anywhere; outline:none; transition:background .12s,opacity .12s; }
-    .note:first-child { border-top:1px solid var(--line); }
-    .note:hover { background:var(--hover); }
-    .note:focus { background:var(--paper); box-shadow:inset 3px 0 var(--accent); }
-    .note a { color:var(--accent); text-decoration:none; }
-    .note a:hover { text-decoration:underline; }
-    mark { background:#ffe66a; color:#242424; border-radius:3px; padding:0 1px; }
-    mark.current { background:#ffb224; outline:2px solid color-mix(in srgb,#ffb224 38%,transparent); }
-    .note::after { content:"⋮⋮"; position:absolute; right:13px; top:12px; color:var(--muted); opacity:0; letter-spacing:-3px; cursor:grab; }
-    .note:hover::after,.note:focus::after { opacity:.65; }
-    .note.dragging { opacity:.35; }
-    .drop-line { height:2px; background:var(--accent); position:absolute; left:0; right:0; z-index:4; pointer-events:none; border-radius:2px; box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent); }
-    .empty { text-align:center; padding:64px 20px; color:var(--muted); }
-    .empty strong { display:block; color:var(--text); font-size:16px; margin-bottom:3px; }
-    .add-btn { width:100%; margin-top:14px; padding:10px 12px; text-align:left; color:var(--muted); }
-    .add-btn:hover { background:var(--hover); color:var(--text); }
-    .status { min-height:22px; margin-top:12px; color:var(--muted); font-size:12px; text-align:right; }
-    .menu { position:fixed; z-index:20; min-width:185px; padding:6px; border:1px solid var(--line); border-radius:10px; background:var(--paper); box-shadow:var(--shadow); display:none; }
-    .menu.open { display:block; }
-    .menu button { width:100%; padding:7px 10px; text-align:left; }
-    .menu hr { border:0; border-top:1px solid var(--line); margin:5px 2px; }
-    .shortcut { float:right; color:var(--muted); font-size:12px; margin-left:20px; }
-    .toast { position:fixed; bottom:24px; left:50%; transform:translate(-50%,16px); background:var(--text); color:var(--bg); border-radius:8px; padding:9px 13px; opacity:0; pointer-events:none; transition:.2s; font-size:13px; }
-    .toast.show { opacity:1; transform:translate(-50%,0); }
-    .auth-card { margin:70px auto; width:min(420px,calc(100% - 32px)); padding:28px; border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--shadow); }
-    .auth-card h2 { margin:0 0 6px; font-size:22px; letter-spacing:-.025em; }
-    .auth-card p { margin:0 0 20px; color:var(--muted); }
-    .auth-form { display:grid; gap:9px; }
-    .auth-form input { min-width:0; flex:1; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); padding:10px 12px; outline:none; }
-    .auth-actions { display:flex; gap:8px; }
-    .auth-actions button { flex:1; }
-    .primary-btn { border:0; border-radius:8px; background:var(--text); color:var(--bg); padding:10px 14px; cursor:pointer; white-space:nowrap; }
-    .secondary-btn { border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--text); padding:10px 14px; cursor:pointer; white-space:nowrap; }
-    .secondary-btn:hover { background:var(--hover); }
-    .primary-btn:disabled { opacity:.55; cursor:wait; }
-    .auth-note { margin-top:14px!important; margin-bottom:0!important; font-size:12px; }
-    .account { display:flex; justify-content:flex-end; align-items:center; gap:7px; margin:-16px 0 12px; color:var(--muted); font-size:12px; }
-    .text-btn { border:0; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; padding:6px 8px; }
-    .text-btn:hover { background:var(--hover); color:var(--text); }
-    [hidden] { display:none!important; }
-    @media (max-width:600px) { .app{width:min(100% - 24px,760px);padding-top:28px} header{align-items:flex-start}.shortcut{display:none} }
-  </style>
-</head>
-<body>
-  <section class="auth-card" id="authCard" hidden>
-    <h2>As suas notas, em todo o lado</h2>
-    <p>Entre com o seu e-mail e palavra-passe.</p>
-    <form class="auth-form" id="authForm">
-      <input id="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" required aria-label="Endereço de e-mail">
-      <input id="password" type="password" autocomplete="current-password" placeholder="Palavra-passe" minlength="6" required aria-label="Palavra-passe">
-      <div class="auth-actions">
-        <button class="primary-btn" id="loginBtn" type="submit">Entrar</button>
-        <button class="secondary-btn" id="signupBtn" type="button">Criar conta</button>
-      </div>
-      <button class="text-btn" id="forgotBtn" type="button">Definir ou recuperar palavra-passe</button>
-    </form>
-    <p class="auth-note" id="authMessage">Na primeira utilização, escolha “Criar conta”.</p>
-  </section>
-  <main class="app" id="app" hidden>
-    <header>
-      <h1>Notas</h1>
-      <div class="toolbar">
-        <button class="icon-btn" id="importBtn" title="Importar treenotes.json" aria-label="Importar treenotes.json">↑</button>
-        <button class="icon-btn" id="exportBtn" title="Exportar treenotes.json" aria-label="Exportar treenotes.json">↓</button>
-        <button class="icon-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema">◐</button>
-      </div>
-    </header>
-    <div class="account"><span id="accountEmail"></span><button class="text-btn" id="logoutBtn">Terminar sessão</button></div>
-    <div class="search-row">
-      <input class="search" id="search" type="search" placeholder="Pesquisar notas…" aria-label="Pesquisar notas">
-      <span class="result-count" id="resultCount" aria-live="polite"></span>
-      <button class="nav-btn" id="prevResult" title="Resultado anterior (Shift+F3)" aria-label="Resultado anterior">←</button>
-      <button class="nav-btn" id="nextResult" title="Resultado seguinte (F3)" aria-label="Resultado seguinte">→</button>
-    </div>
-    <section class="notes" id="notes" aria-live="polite"></section>
-    <button class="add-btn" id="addBtn">＋ Adicionar uma nota</button>
-    <div class="status" id="status"></div>
-  </main>
-  <input id="fileInput" type="file" accept="application/json,.json" hidden>
-  <div class="menu" id="editMenu" role="menu">
-    <button data-command="cut">Cortar <span class="shortcut">Ctrl+X</span></button>
-    <button data-command="copy">Copiar <span class="shortcut">Ctrl+C</span></button>
-    <button data-command="paste">Colar <span class="shortcut">Ctrl+V</span></button>
-    <hr>
-    <button data-command="selectAll">Selecionar tudo <span class="shortcut">Ctrl+A</span></button>
-  </div>
-  <div class="toast" id="toast"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    (() => {
-      const KEY='notas-minimalistas-v1';
-      // Preencha estes dois valores no painel Supabase: Project Settings → API.
-      const SUPABASE_URL='https://whhbsxugpzxlqanbhnwl.supabase.co/rest/v1/';
-      const SUPABASE_PUBLISHABLE_KEY='sb_publishable_9ueIri6x_9BJpBh9yXchZw_kkfpk8kw';
-      const $=s=>document.querySelector(s), notesEl=$('#notes'), status=$('#status'), menu=$('#editMenu');
-      let notes=load(), active=null, menuTarget=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
-      let client=null, session=null, channel=null, applyingRemote=false, currentUserId=null, authMode='login';
-      function load(){ try { const data=JSON.parse(localStorage.getItem(KEY)); return Array.isArray(data)?data:[]; } catch { return []; } }
-      function persist(){
-        localStorage.setItem(KEY,JSON.stringify(notes));
-        status.textContent=session?'A sincronizar…':'Guardado neste dispositivo';
-        if(session&&!applyingRemote){ clearTimeout(remoteTimer); remoteTimer=setTimeout(syncRemote,300); }
-      }
-      function scheduleSave(){ clearTimeout(saveTimer); status.textContent='A guardar…'; saveTimer=setTimeout(persist,180); }
-      async function syncRemote(){
-        if(!client||!session)return;
-        try {
-          const rows=notes.map((n,i)=>({id:n.id,user_id:session.user.id,text:n.text,position:i,created_at:n.createdAt,updated_at:n.updatedAt}));
-          if(rows.length){ const {error}=await client.from('notes').upsert(rows,{onConflict:'id'}); if(error)throw error; }
-          const {data:existing,error:readError}=await client.from('notes').select('id'); if(readError)throw readError;
-          const ids=new Set(notes.map(n=>n.id));
-          const stale=(existing||[]).filter(row=>!ids.has(row.id)).map(row=>row.id);
-          if(stale.length){ const {error}=await client.from('notes').delete().in('id',stale); if(error)throw error; }
-          status.textContent='Sincronizado · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
-        } catch(error){ console.error(error); status.textContent='Erro de sincronização'; toast('Não foi possível sincronizar'); }
-      }
-      async function loadRemote({offerMigration=false}={}){
-        const {data,error}=await client.from('notes').select('id,text,position,created_at,updated_at').order('position');
-        if(error){ console.error(error); status.textContent='Erro ao carregar notas'; return; }
-        if(offerMigration&&data.length===0&&notes.length&&confirm(`Encontrámos ${notes.length} ${notes.length===1?'nota':'notas'} neste navegador. Enviar para a sua conta?`)){
-          await syncRemote(); toast('Notas migradas para a sua conta'); return;
+
+import base64
+import io
+import json
+import os
+import ctypes
+import queue
+import socket
+import subprocess
+import stat
+import re
+import winreg
+import glob
+import sqlite3
+import threading
+import time
+import uuid
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import quote_plus
+from collections import deque
+from tkinter import *
+from PIL import Image, ImageDraw, ImageOps, ImageTk
+from tkinter import ttk, filedialog, messagebox, simpledialog
+
+APP_NAME = "TreeNotes"
+UP_ITEM_ID = "__treenotes_up_one_level__"
+MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+MAX_SYNC_BODY_BYTES = 128 * 1024 * 1024
+SYNC_PROTOCOL_VERSION = 2
+MAX_STORED_IMAGE_DIMENSION = 1600
+NOTE_URL_RE = re.compile(r'(?i)\b((?:https?://|www\.)[^\s<>"\']+)')
+IMAGE_THUMBNAIL_SIZE = (720, 440)
+PORT = 8765
+
+TREENOTES_EXACT_ICON_B64 = """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"""
+
+
+
+
+def setup_windows_app_identity():
+    """Força identidade própria no Windows para o ícone da barra de tarefas."""
+    if os.name != "nt":
+        return
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "TreeNotes.Desktop"
+        )
+    except Exception:
+        pass
+
+
+setup_windows_app_identity()
+
+def natural_sort_parts(value):
+    """Divide texto em partes textuais e numéricas para ordenação natural."""
+    text = "" if value is None else str(value)
+    parts = re.split(r"(\d+)", text.casefold())
+    out = []
+    for part in parts:
+        if not part:
+            continue
+        if part.isdigit():
+            out.append((0, int(part)))
+        else:
+            out.append((1, part))
+    return out
+
+
+def natural_sort_key(node_or_title):
+    if isinstance(node_or_title, str):
+        return (0, natural_sort_parts(node_or_title))
+    kind_rank = 0 if node_or_title.get("kind") == "topic" else 1
+    return (kind_rank, natural_sort_parts(node_or_title.get("title", "")))
+
+
+
+def _expand_windows_path(value):
+    '''Normaliza um valor vindo do Registo/DriveFS para um caminho Windows.'''
+    if value is None:
+        return None
+    value = str(value).strip().strip('\"').strip()
+    if not value:
+        return None
+    value = os.path.expandvars(value)
+    if re.match(r'(?i)^[a-z]:\\\\', value):
+        value = value.replace('\\\\', '\\')
+    if re.match(r'(?i)^[a-z]:/', value):
+        value = value.replace('/', '\\')
+    if re.fullmatch(r'[A-Za-z]', value):
+        value += ':\\'
+    elif re.fullmatch(r'[A-Za-z]:', value):
+        value += '\\'
+    return Path(value)
+
+
+def _extract_paths_from_registry_value(value):
+    '''Extrai caminhos Windows de valores textuais do Registo.'''
+    raw_values = value if isinstance(value, (list, tuple)) else [value]
+    paths = []
+    for raw in raw_values:
+        if raw is None:
+            continue
+        text = os.path.expandvars(str(raw).strip())
+        if not text:
+            continue
+        simple = _expand_windows_path(text)
+        if simple is not None and re.match(r'(?i)^[A-Z]:', str(simple)):
+            paths.append(simple)
+        for match in re.finditer(r'(?i)([A-Z]:(?:\\|/)[^\x00\r\n\"<>|?*]*)', text):
+            candidate = match.group(1).strip().rstrip(' ,;]})\'')
+            p = _expand_windows_path(candidate)
+            if p is not None:
+                paths.append(p)
+        for match in re.finditer(r'(?i)\b([A-Z]:)(?:\\)?', text):
+            p = _expand_windows_path(match.group(1))
+            if p is not None:
+                paths.append(p)
+    return paths
+
+
+def _is_drivefs_internal_path(path):
+    '''Rejeita cache/configuração interna do Google Drive.'''
+    try:
+        localappdata = os.environ.get('LOCALAPPDATA', '').strip()
+        if not localappdata:
+            return False
+        p = os.path.normcase(os.path.abspath(str(path)))
+        internal = os.path.normcase(os.path.abspath(os.path.join(localappdata, 'Google', 'DriveFS')))
+        return p == internal or p.startswith(internal + os.sep)
+    except Exception:
+        return False
+
+
+def _extract_absolute_windows_paths_from_bytes(data):
+    '''Extrai caminhos absolutos Windows de configuração textual/binária DriveFS.'''
+    paths = []
+    texts = []
+    for encoding in ('utf-8', 'utf-16le', 'utf-16be'):
+        try:
+            texts.append(data.decode(encoding, errors='ignore'))
+        except Exception:
+            pass
+    patterns = (
+        re.compile(r'(?i)([A-Z]:\\(?:[^\"\r\n\x00<>|?*]+))'),
+        re.compile(r'(?i)([A-Z]:/(?:[^\"\r\n\x00<>|?*]+))'),
+    )
+    for text in texts:
+        for pattern in patterns:
+            for match in pattern.finditer(text):
+                raw = match.group(1).strip().rstrip(' ,;]})\'')
+                for sep in ('\\n', '\\r', '\\t'):
+                    if sep in raw:
+                        raw = raw.split(sep, 1)[0]
+                candidate = _expand_windows_path(raw)
+                if candidate is not None:
+                    paths.append(candidate)
+    return paths
+
+
+def _iter_drivefs_files(base, max_depth=4):
+    '''Enumera ficheiros DriveFS com profundidade limitada.'''
+    if not base.exists():
+        return
+    stack = [(base, 0)]
+    seen = set()
+    while stack:
+        folder, depth = stack.pop()
+        key = os.path.normcase(os.path.abspath(str(folder)))
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            entries = list(os.scandir(folder))
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                if entry.is_file(follow_symlinks=False):
+                    yield Path(entry.path)
+                elif depth < max_depth and entry.is_dir(follow_symlinks=False):
+                    if entry.name.casefold() not in {'logs', 'content_cache', 'crashpad'}:
+                        stack.append((Path(entry.path), depth + 1))
+            except OSError:
+                continue
+
+
+def _drivefs_config_candidates(max_files=48, max_file_size=2 * 1024 * 1024):
+    """Lê apenas os ficheiros DriveFS mais prováveis, evitando scans pesados no arranque."""
+    localappdata = os.environ.get('LOCALAPPDATA', '').strip()
+    if not localappdata:
+        return []
+    base = Path(localappdata) / 'Google' / 'DriveFS'
+    if not base.exists():
+        return []
+
+    preferred = ('preference', 'setting', 'config', 'user_default', 'global',
+                 'mirror', 'account', 'state', 'profile', 'mount')
+    selected = []
+    try:
+        files = list(_iter_drivefs_files(base, max_depth=3))
+    except Exception:
+        files = []
+
+    # Tal como no sistema rápido usado para OneDrive: primeiro candidatos
+    # prováveis e pouco numerosos; nunca ler indiscriminadamente toda a cache.
+    files.sort(key=lambda q: (
+        0 if any(t in q.name.casefold() for t in preferred) else 1,
+        len(q.parts),
+        q.name.casefold(),
+    ))
+
+    for config_file in files:
+        if len(selected) >= max_files:
+            break
+        name = config_file.name.casefold()
+        if name.endswith(('.log', '.tmp', '.cache', '.db', '.sqlite', '.sqlite3')):
+            continue
+        try:
+            size = config_file.stat().st_size
+        except OSError:
+            continue
+        if size <= 0 or size > max_file_size:
+            continue
+        # Ficheiros não sugestivos só entram enquanto a amostra ainda é pequena.
+        if not any(t in name for t in preferred) and len(selected) >= 12:
+            continue
+        selected.append(config_file)
+
+    candidates = []
+    for config_file in selected:
+        try:
+            data = config_file.read_bytes()
+        except OSError:
+            continue
+        for candidate in _extract_absolute_windows_paths_from_bytes(data):
+            try:
+                if candidate.exists() and candidate.is_dir() and not _is_drivefs_internal_path(candidate):
+                    candidates.append(candidate)
+            except OSError:
+                pass
+    return candidates
+
+
+def _registry_mount_candidates():
+    '''Lê recursivamente as chaves DriveFS relevantes do Registo.'''
+    candidates = []
+    locations = [
+        (winreg.HKEY_CURRENT_USER, r'Software\Google\DriveFS'),
+        (winreg.HKEY_LOCAL_MACHINE, r'Software\Google\DriveFS'),
+        (winreg.HKEY_LOCAL_MACHINE, r'Software\Policies\Google\DriveFS'),
+    ]
+    positive = ('mount', 'sync', 'target', 'mirror', 'folder', 'location', 'path')
+    negative = ('cache', 'content', 'log', 'temp', 'crash', 'install', 'executable')
+    def walk_key(hive, key_path, depth=0):
+        if depth > 4:
+            return
+        try:
+            with winreg.OpenKey(hive, key_path) as key:
+                i = 0
+                while True:
+                    try:
+                        name, value, value_type = winreg.EnumValue(key, i)
+                        i += 1
+                    except OSError:
+                        break
+                    if value_type not in (winreg.REG_SZ, winreg.REG_EXPAND_SZ, winreg.REG_MULTI_SZ):
+                        continue
+                    lname = str(name).casefold()
+                    if any(t in lname for t in negative) or not any(t in lname for t in positive):
+                        continue
+                    for candidate in _extract_paths_from_registry_value(value):
+                        try:
+                            if candidate.exists() and candidate.is_dir() and not _is_drivefs_internal_path(candidate):
+                                candidates.append(candidate)
+                        except OSError:
+                            pass
+                i = 0
+                while True:
+                    try:
+                        sub = winreg.EnumKey(key, i)
+                        i += 1
+                    except OSError:
+                        break
+                    walk_key(hive, key_path + '\\' + sub, depth + 1)
+        except OSError:
+            pass
+    for hive, key_path in locations:
+        walk_key(hive, key_path)
+    return candidates
+
+
+def _windows_logical_drives():
+    '''Enumera unidades Windows sem depender de pywin32.'''
+    drives = []
+    try:
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        for i in range(26):
+            if mask & (1 << i):
+                drives.append(f'{chr(65+i)}:\\')
+    except Exception:
+        for i in range(26):
+            drive = f'{chr(65+i)}:\\'
+            if os.path.exists(drive):
+                drives.append(drive)
+    return drives
+
+
+def _windows_drive_type(drive):
+    try:
+        return int(ctypes.windll.kernel32.GetDriveTypeW(str(drive)))
+    except Exception:
+        return 0
+
+
+def _windows_volume_label(drive):
+    '''Obtém o nome do volume usando apenas a API nativa do Windows.'''
+    try:
+        volume_name = ctypes.create_unicode_buffer(261)
+        fs_name = ctypes.create_unicode_buffer(261)
+        serial = ctypes.c_ulong()
+        max_component = ctypes.c_ulong()
+        flags = ctypes.c_ulong()
+        ok = ctypes.windll.kernel32.GetVolumeInformationW(
+            str(drive), volume_name, len(volume_name), ctypes.byref(serial),
+            ctypes.byref(max_component), ctypes.byref(flags), fs_name, len(fs_name)
+        )
+        return volume_name.value if ok else ''
+    except Exception:
+        return ''
+
+
+def _onedrive_candidates_from_environment():
+    """Obtém rapidamente as raízes OneDrive anunciadas pelo Windows e pelos perfis."""
+    candidates = []
+    seen = set()
+
+    def add(raw):
+        if not raw:
+            return
+        try:
+            path = Path(str(raw).strip().strip('"').strip("'")).expanduser()
+            if not path.exists() or not path.is_dir():
+                return
+            path = path.resolve()
+        except (OSError, ValueError):
+            return
+        name = path.name.casefold()
+        if not name.startswith('onedrive') or name.startswith('onedrivetemp'):
+            return
+        key = os.path.normcase(os.path.normpath(str(path)))
+        if key not in seen:
+            seen.add(key)
+            candidates.append(path)
+
+    for name in ('OneDrive', 'OneDriveCommercial', 'OneDriveConsumer', 'ONEDRIVE'):
+        add(os.environ.get(name))
+    for name, value in os.environ.items():
+        if name.casefold().startswith('onedrive'):
+            add(value)
+
+    profiles = []
+    for raw in (os.environ.get('USERPROFILE'), str(Path.home())):
+        if raw:
+            try:
+                profile = Path(raw).expanduser()
+                if profile.exists() and profile.is_dir():
+                    profiles.append(profile)
+            except OSError:
+                pass
+    for profile in profiles:
+        try:
+            for path in profile.glob('OneDrive*'):
+                add(path)
+        except OSError:
+            pass
+
+    try:
+        script_dir = Path(__file__).resolve().parent
+    except Exception:
+        script_dir = Path.cwd()
+    for base in (script_dir, Path.cwd()):
+        try:
+            for parent in (base, *base.parents):
+                if parent.name.casefold().startswith('onedrive'):
+                    add(parent)
+                    break
+        except OSError:
+            pass
+
+    probable_drives = set()
+    for raw in (os.environ.get('HOMEDRIVE'), os.environ.get('SystemDrive'),
+                Path.home().drive, script_dir.drive):
+        if raw:
+            probable_drives.add(str(raw).rstrip('\\/') + '\\')
+    for drive in sorted(probable_drives):
+        users_dir = Path(drive) / 'Users'
+        try:
+            for profile in users_dir.iterdir():
+                if profile.is_dir():
+                    if profile.name.casefold() in ('default', 'default user', 'public', 'all users'):
+                        continue
+                    for path in profile.glob('OneDrive*'):
+                        add(path)
+        except OSError:
+            pass
+    return candidates
+
+
+def _onedrive_candidates_from_scan():
+    """Fallback limitado a localizações prováveis; nunca percorre profundamente os discos."""
+    candidates = []
+    seen = set()
+
+    def add(raw):
+        try:
+            path = Path(str(raw)).expanduser()
+            if not path.exists() or not path.is_dir():
+                return
+            path = path.resolve()
+        except (OSError, ValueError):
+            return
+        name = path.name.casefold()
+        if not name.startswith('onedrive') or name.startswith('onedrivetemp'):
+            return
+        key = os.path.normcase(os.path.normpath(str(path)))
+        if key not in seen:
+            seen.add(key)
+            candidates.append(path)
+
+    for drive in _windows_logical_drives():
+        root = Path(drive)
+        patterns = (
+            root / 'OneDrive*', root / 'Users' / '*' / 'OneDrive*',
+            root / 'BACKUP' / 'OneDrive*', root / 'BACKUP' / '*' / 'OneDrive*',
+            root / 'BACKUP' / 'FTP' / 'OneDrive*', root / 'Downloads' / 'OneDrive*',
+        )
+        for pattern in patterns:
+            try:
+                for match in glob.glob(str(pattern)):
+                    add(match)
+            except OSError:
+                pass
+    return candidates
+
+
+def detect_onedrive_roots():
+    """Devolve todas as contas OneDrive detetadas, pessoais ou empresariais."""
+    roots = {}
+    for path in _onedrive_candidates_from_environment():
+        roots.setdefault(path.name, path)
+    for path in _onedrive_candidates_from_scan():
+        roots.setdefault(path.name, path)
+    return roots
+
+
+def _is_onedrive_path(path):
+    try:
+        return any(part.casefold().startswith('onedrive') for part in Path(path).parts)
+    except (TypeError, ValueError):
+        return False
+
+
+def _resolve_windows_shortcut(shortcut):
+    '''Resolve um .lnk usando componentes nativos do Windows.'''
+    try:
+        shortcut = Path(shortcut)
+        if not shortcut.exists() or shortcut.suffix.casefold() != '.lnk':
+            return None
+        escaped = str(shortcut).replace("'", "''")
+        command = (
+            '$w=New-Object -ComObject WScript.Shell;'
+            f"$s=$w.CreateShortcut('{escaped}');"
+            '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+            '$s.TargetPath'
+        )
+        result = subprocess.run(
+            ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', command],
+            capture_output=True, text=True, encoding='utf-8', errors='ignore', timeout=3,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        )
+        target = result.stdout.strip()
+        if target:
+            p = Path(target)
+            if p.exists() and p.is_dir():
+                return p
+    except Exception:
+        pass
+    return None
+
+
+def _mounted_drive_content_candidates(root):
+    '''Obtém a pasta real de ficheiros a partir de um ponto de montagem Drive.'''
+    root = Path(root)
+    out = [root]
+    for name in ('My Drive', 'O meu disco', 'Meu Drive', 'Google Drive'):
+        child = root / name
+        try:
+            if child.exists() and child.is_dir():
+                try:
+                    resolved = child.resolve()
+                    if resolved.exists() and resolved.is_dir():
+                        out.insert(0, resolved)
+                except OSError:
+                    pass
+                out.append(child)
+        except OSError:
+            pass
+        target = _resolve_windows_shortcut(root / (name + '.lnk'))
+        if target is not None:
+            out.insert(0, target)
+    return out
+
+
+def _google_drive_volume_candidates():
+    '''Deteta volumes Google Drive usando a API nativa do Windows.'''
+    candidates = []
+    for drive in _windows_logical_drives():
+        label = _windows_volume_label(drive).casefold()
+        if 'google drive' in label or ('google' in label and 'drive' in label):
+            candidates.extend(_mounted_drive_content_candidates(Path(drive)))
+    for hive, key_path in (
+        (winreg.HKEY_CURRENT_USER, r'Software\Google\DriveFS'),
+        (winreg.HKEY_LOCAL_MACHINE, r'Software\Google\DriveFS'),
+        (winreg.HKEY_LOCAL_MACHINE, r'Software\Policies\Google\DriveFS'),
+    ):
+        try:
+            with winreg.OpenKey(hive, key_path) as key:
+                value, _ = winreg.QueryValueEx(key, 'DefaultMountPoint')
+                p = _expand_windows_path(value)
+                if p is not None and p.exists() and p.is_dir():
+                    candidates.extend(_mounted_drive_content_candidates(p))
+        except OSError:
+            pass
+    return candidates
+
+
+def _normalise_google_drive_root(candidate):
+    try:
+        candidate = Path(os.path.normpath(str(candidate)))
+        if not candidate.exists() or not candidate.is_dir() or _is_drivefs_internal_path(candidate):
+            return None
+    except (OSError, ValueError):
+        return None
+    for resolved in _mounted_drive_content_candidates(candidate):
+        if resolved != candidate:
+            try:
+                if resolved.exists() and resolved.is_dir():
+                    return resolved
+            except OSError:
+                pass
+    return candidate
+
+
+def _has_treenotes_database(root):
+    try:
+        return (Path(root) / 'TreeNotesData' / 'treenotes.db').is_file()
+    except OSError:
+        return False
+
+
+def _is_local_fallback_treenotes_root(root):
+    '''Evita confundir o fallback local do TreeNotes com Google Drive.'''
+    try:
+        root_norm = os.path.normcase(os.path.abspath(str(root)))
+        userprofile = os.environ.get('USERPROFILE', '').strip()
+        localappdata = os.environ.get('LOCALAPPDATA', '').strip()
+        known = []
+        if userprofile:
+            known.append(os.path.normcase(os.path.abspath(userprofile)))
+        if localappdata:
+            known.append(os.path.normcase(os.path.abspath(localappdata)))
+        return root_norm in known
+    except Exception:
+        return False
+
+
+def _root_name_drive_hint(root):
+    '''Pontuação auxiliar baseada apenas em nomes genéricos de Google Drive.'''
+    text = str(root).casefold().replace('_', ' ').replace('-', ' ')
+    compact = re.sub(r'\s+', '', text)
+    if 'googledrive' in compact or 'gdrive' in compact:
+        return 80
+    if 'google' in text and 'drive' in text:
+        return 80
+    if 'my drive' in text or 'o meu disco' in text or 'meu drive' in text:
+        return 60
+    return 0
+
+
+def _search_existing_treenotes_roots(max_depth=3, total_seconds=1.5, max_dirs_scanned=2500):
+    """Fallback rápido: procura TreeNotesData	reenotes.db por BFS superficial.
+
+    Não depende do nome da pasta Google Drive nem de caminhos concretos. A BFS
+    garante que pastas pouco profundas são verificadas antes de árvores enormes.
+    """
+    found = []
+    deadline = time.monotonic() + total_seconds
+    blocked = {
+        'windows', 'program files', 'program files (x86)', 'programdata',
+        '$recycle.bin', 'system volume information', 'recovery', 'perflogs',
+        'appdata', 'node_modules', '.git', '.cache', '$windows.~bt', '$windows.~ws'
+    }
+    scanned = 0
+
+    for drive in _windows_logical_drives():
+        if time.monotonic() >= deadline or scanned >= max_dirs_scanned:
+            break
+        if _windows_drive_type(drive) not in (0, 3):
+            continue
+
+        queue_dirs = deque([(Path(drive), 0)])
+        seen = set()
+        while queue_dirs and time.monotonic() < deadline and scanned < max_dirs_scanned:
+            folder, depth = queue_dirs.popleft()
+            try:
+                norm = os.path.normcase(os.path.abspath(str(folder)))
+            except Exception:
+                continue
+            if norm in seen:
+                continue
+            seen.add(norm)
+            scanned += 1
+
+            if _has_treenotes_database(folder):
+                if not _is_local_fallback_treenotes_root(folder):
+                    found.append(folder)
+                continue
+            if depth >= max_depth:
+                continue
+
+            try:
+                entries = os.scandir(folder)
+            except OSError:
+                continue
+
+            normal_children = []
+            hinted_children = []
+            try:
+                for entry in entries:
+                    try:
+                        if not entry.is_dir(follow_symlinks=False):
+                            continue
+                        if entry.name.casefold() in blocked:
+                            continue
+                        attrs = getattr(entry.stat(follow_symlinks=False), 'st_file_attributes', 0)
+                        if attrs & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400):
+                            continue
+                        child = Path(entry.path)
+                        # Se já vemos a assinatura diretamente, não é necessário
+                        # aprofundar para descobrir que esta pasta é a raiz certa.
+                        if _has_treenotes_database(child):
+                            if not _is_local_fallback_treenotes_root(child):
+                                found.append(child)
+                            continue
+                        if _root_name_drive_hint(child):
+                            hinted_children.append(child)
+                        else:
+                            normal_children.append(child)
+                    except OSError:
+                        continue
+            finally:
+                try:
+                    entries.close()
+                except Exception:
+                    pass
+
+            # Candidatos cujo nome sugere Google Drive entram primeiro, mas a
+            # deteção não depende disso: todos os restantes continuam elegíveis.
+            hinted_children.sort(key=lambda x: x.name.casefold())
+            normal_children.sort(key=lambda x: x.name.casefold())
+            for child in hinted_children + normal_children:
+                queue_dirs.append((child, depth + 1))
+
+    return found
+
+
+def _score_google_drive_candidate(path, source):
+    '''Ordena candidatos, dando prioridade a uma base TreeNotes já existente.'''
+    score = {
+        'existing_db': 500, 'config': 180, 'registry': 150,
+        'volume': 140, 'env': 90, 'fallback': 30
+    }.get(source, 0)
+    if _has_treenotes_database(path):
+        score += 1000
+    score += _root_name_drive_hint(path)
+    text = str(path).casefold()
+    if '\\appdata\\local\\google\\drivefs' in text:
+        score -= 2000
+    elif '\\appdata\\' in text:
+        score -= 300
+    return score
+
+
+def _drive_root_cache_file():
+    """Ficheiro local mínimo usado apenas para acelerar arranques seguintes."""
+    localappdata = os.environ.get('LOCALAPPDATA', '').strip()
+    if not localappdata:
+        return None
+    return Path(localappdata) / 'TreeNotes' / 'google_drive_root.txt'
+
+
+def _load_cached_google_drive_root():
+    """Reutiliza o último Drive encontrado apenas enquanto continuar válido."""
+    cache = _drive_root_cache_file()
+    if cache is None or not cache.is_file():
+        return None
+    try:
+        raw = cache.read_text(encoding='utf-8').strip()
+        if not raw:
+            return None
+        root = _normalise_google_drive_root(Path(raw))
+        if root is None or _is_drivefs_internal_path(root) or _is_onedrive_path(root):
+            return None
+        # A base já existente confirma que o cache continua a apontar para
+        # o armazenamento real do TreeNotes e não para uma pasta obsoleta.
+        if _has_treenotes_database(root):
+            return root
+    except Exception:
+        return None
+    return None
+
+
+def _save_cached_google_drive_root(root):
+    """Guarda o caminho descoberto sem o tornar uma configuração rígida."""
+    cache = _drive_root_cache_file()
+    if cache is None or root is None:
+        return
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(str(Path(root)), encoding='utf-8')
+    except OSError:
+        pass
+
+
+def detect_google_drive_root():
+    """Deteta a raiz real do Google Drive, privilegiando arranque rápido."""
+    # 1) Caminho validado do arranque anterior: custo praticamente nulo.
+    cached = _load_cached_google_drive_root()
+    if cached is not None:
+        return cached
+
+    valid = []
+    seen = set()
+
+    def add_candidate(candidate, source):
+        root = _normalise_google_drive_root(candidate)
+        if root is None or _is_onedrive_path(root):
+            return
+        key = os.path.normcase(os.path.normpath(str(root)))
+        if key in seen:
+            return
+        seen.add(key)
+        valid.append((_score_google_drive_candidate(root, source), root, source))
+
+    # 2) Fontes rápidas e determinísticas, seguindo a abordagem em camadas.
+    for candidate in _registry_mount_candidates():
+        add_candidate(candidate, 'registry')
+    for candidate in _google_drive_volume_candidates():
+        add_candidate(candidate, 'volume')
+    for env_name in ('GOOGLE_DRIVE', 'GOOGLEDRIVE', 'GDRIVE', 'GoogleDrive'):
+        value = os.environ.get(env_name)
+        if value:
+            p = _expand_windows_path(value)
+            if p is not None:
+                add_candidate(p, 'env')
+
+    # Se o próprio script estiver dentro da árvore sincronizada e a base já
+    # existir num dos ascendentes, aproveitá-la sem procurar pelo disco.
+    try:
+        script_dir = Path(__file__).resolve().parent
+        for parent in (script_dir, *script_dir.parents):
+            if _has_treenotes_database(parent):
+                add_candidate(parent, 'existing_db')
+                break
+    except Exception:
+        pass
+
+    # Se alguma fonte rápida já encontrou a base real, terminar imediatamente.
+    db_candidates = [item for item in valid if _has_treenotes_database(item[1])]
+    if db_candidates:
+        db_candidates.sort(key=lambda item: item[0], reverse=True)
+        selected = db_candidates[0][1]
+        _save_cached_google_drive_root(selected)
+        return selected
+
+    # 3) Pesquisa superficial e limitada pela assinatura da própria aplicação.
+    # Não depende do nome da pasta (GoogleDrive, BACKUP, Downloads, etc.).
+    for root in _search_existing_treenotes_roots():
+        add_candidate(root, 'existing_db')
+    db_candidates = [item for item in valid if _has_treenotes_database(item[1])]
+    if db_candidates:
+        db_candidates.sort(key=lambda item: item[0], reverse=True)
+        selected = db_candidates[0][1]
+        _save_cached_google_drive_root(selected)
+        return selected
+
+    # 4) Só agora consultar os ficheiros internos do DriveFS. Esta é a etapa
+    # potencialmente mais cara e por isso fica deliberadamente para o fim.
+    for candidate in _drivefs_config_candidates():
+        add_candidate(candidate, 'config')
+
+    # 5) Fallbacks genéricos muito baratos do perfil atual.
+    userprofile = os.environ.get('USERPROFILE', '').strip()
+    if userprofile:
+        home = Path(userprofile)
+        for name in ('Google Drive', 'GoogleDrive', 'My Drive', 'O meu disco'):
+            add_candidate(home / name, 'fallback')
+
+    if not valid:
+        return None
+    valid.sort(key=lambda item: item[0], reverse=True)
+    selected = valid[0][1]
+    _save_cached_google_drive_root(selected)
+    return selected
+
+
+GOOGLE_DRIVE_ROOT = detect_google_drive_root()
+ONEDRIVE_ROOTS = detect_onedrive_roots()
+
+
+def _select_onedrive_root(roots):
+    """Prefere a conta que já contém os dados; depois aplica a preferência usada no Tarefas."""
+    existing = [root for root in roots.values() if _has_treenotes_database(root)]
+    if existing:
+        return existing[0]
+    preferred = [root for name, root in roots.items() if 'asae' in name.casefold()]
+    return preferred[0] if preferred else next(iter(roots.values()), None)
+
+
+ONEDRIVE_ROOT = _select_onedrive_root(ONEDRIVE_ROOTS)
+
+def _local_treenotes_dir():
+    """Escolhe uma pasta local gravável pertencente ao utilizador atual no Windows."""
+    userprofile = os.environ.get("USERPROFILE", "").strip()
+    if userprofile:
+        p = Path(userprofile)
+        # Evita aceitar por engano apenas C:\Users como se fosse a home do utilizador.
+        if p.name.lower() != "users":
+            return p / "TreeNotesData"
+
+    homedrive = os.environ.get("HOMEDRIVE", "").strip()
+    homepath = os.environ.get("HOMEPATH", "").strip()
+    if homedrive and homepath:
+        p = Path(homedrive + homepath)
+        if p.name.lower() != "users":
+            return p / "TreeNotesData"
+
+    localappdata = os.environ.get("LOCALAPPDATA", "").strip()
+    if localappdata:
+        return Path(localappdata) / "TreeNotesData"
+
+    return Path.cwd() / "TreeNotesData"
+
+
+if GOOGLE_DRIVE_ROOT is not None and _has_treenotes_database(GOOGLE_DRIVE_ROOT):
+    APP_DIR = GOOGLE_DRIVE_ROOT / "TreeNotesData"
+    USING_GOOGLE_DRIVE = True
+    USING_ONEDRIVE = False
+elif ONEDRIVE_ROOT is not None and _has_treenotes_database(ONEDRIVE_ROOT):
+    APP_DIR = ONEDRIVE_ROOT / "TreeNotesData"
+    USING_GOOGLE_DRIVE = False
+    USING_ONEDRIVE = True
+elif GOOGLE_DRIVE_ROOT is not None:
+    APP_DIR = GOOGLE_DRIVE_ROOT / "TreeNotesData"
+    USING_GOOGLE_DRIVE = True
+    USING_ONEDRIVE = False
+elif ONEDRIVE_ROOT is not None:
+    APP_DIR = ONEDRIVE_ROOT / "TreeNotesData"
+    USING_GOOGLE_DRIVE = False
+    USING_ONEDRIVE = True
+else:
+    APP_DIR = _local_treenotes_dir()
+    USING_GOOGLE_DRIVE = False
+    USING_ONEDRIVE = False
+
+# Última proteção: se a pasta escolhida não puder ser criada, usar LOCALAPPDATA.
+try:
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+except (PermissionError, OSError):
+    localappdata = os.environ.get("LOCALAPPDATA", "").strip()
+    if not localappdata:
+        raise
+    APP_DIR = Path(localappdata) / "TreeNotesData"
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    USING_GOOGLE_DRIVE = False
+    USING_ONEDRIVE = False
+
+DB_PATH = APP_DIR / "treenotes.db"
+
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
+
+
+def now_ms():
+    return int(time.time() * 1000)
+
+
+def uid():
+    return str(uuid.uuid4())
+
+
+def local_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except Exception:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except Exception:
+            return "127.0.0.1"
+
+
+class Database:
+    def __init__(self, path=DB_PATH):
+        APP_DIR.mkdir(parents=True, exist_ok=True)
+        self.path = path
+        self.lock = threading.RLock()
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA busy_timeout=5000")
+        self.init_schema()
+
+    def close(self):
+        with self.lock:
+            self.conn.close()
+
+    def init_schema(self):
+        with self.lock, self.conn:
+            self.conn.executescript("""
+            -- PERSIST mantém um único ficheiro de journal estável. O modo WAL
+            -- criava/apagava treenotes.db-wal e treenotes.db-shm dentro do
+            -- Google Drive, originando notificações contínuas de eliminação.
+            PRAGMA journal_mode=PERSIST;
+            PRAGMA foreign_keys=ON;
+            CREATE TABLE IF NOT EXISTS nodes(
+                id TEXT PRIMARY KEY,
+                parent_id TEXT,
+                kind TEXT NOT NULL CHECK(kind IN ('topic','note')),
+                title TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
+            CREATE INDEX IF NOT EXISTS idx_nodes_updated ON nodes(updated_at);
+
+            CREATE TABLE IF NOT EXISTS attachments(
+                id TEXT PRIMARY KEY,
+                node_id TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                mime TEXT NOT NULL,
+                data BLOB NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_att_node ON attachments(node_id);
+            CREATE INDEX IF NOT EXISTS idx_att_updated ON attachments(updated_at);
+
+            CREATE TABLE IF NOT EXISTS settings(
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """)
+        if not self.get_setting("pair_token"):
+            self.set_setting("pair_token", uid().replace("-", ""))
+
+    def get_setting(self, key, default=None):
+        with self.lock:
+            row = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+            return row["value"] if row else default
+
+    def set_setting(self, key, value):
+        with self.lock, self.conn:
+            self.conn.execute("""
+            INSERT INTO settings(key,value) VALUES(?,?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """, (key, str(value)))
+
+    def all_nodes(self, include_deleted=False):
+        sql = "SELECT * FROM nodes"
+        if not include_deleted:
+            sql += " WHERE deleted=0"
+        with self.lock:
+            return [dict(r) for r in self.conn.execute(sql).fetchall()]
+
+    def child_nodes(self, parent_id):
+        with self.lock:
+            if parent_id is None:
+                rows = self.conn.execute(
+                    "SELECT * FROM nodes WHERE parent_id IS NULL AND deleted=0"
+                ).fetchall()
+            else:
+                rows = self.conn.execute(
+                    "SELECT * FROM nodes WHERE parent_id=? AND deleted=0",
+                    (parent_id,)
+                ).fetchall()
+            items = [dict(r) for r in rows]
+            return sorted(items, key=natural_sort_key)
+
+    def get_node(self, node_id):
+        with self.lock:
+            row = self.conn.execute("SELECT * FROM nodes WHERE id=?", (node_id,)).fetchone()
+            return dict(row) if row else None
+
+    def next_order(self, parent_id):
+        with self.lock:
+            if parent_id is None:
+                row = self.conn.execute(
+                    "SELECT COALESCE(MAX(sort_order),-1)+1 n FROM nodes WHERE parent_id IS NULL AND deleted=0"
+                ).fetchone()
+            else:
+                row = self.conn.execute(
+                    "SELECT COALESCE(MAX(sort_order),-1)+1 n FROM nodes WHERE parent_id=? AND deleted=0",
+                    (parent_id,)
+                ).fetchone()
+            return int(row["n"])
+
+    def create_node(self, parent_id, kind, title):
+        node_id = uid()
+        with self.lock, self.conn:
+            self.conn.execute("""
+                INSERT INTO nodes(id,parent_id,kind,title,content,sort_order,updated_at,deleted)
+                VALUES(?,?,?,?,?,?,?,0)
+            """, (node_id, parent_id, kind, title, "", self.next_order(parent_id), now_ms()))
+        return node_id
+
+    def update_node(self, node_id, **fields):
+        allowed = {"parent_id", "kind", "title", "content", "sort_order", "deleted"}
+        pairs, vals = [], []
+        for k, v in fields.items():
+            if k in allowed:
+                pairs.append(f"{k}=?")
+                vals.append(v)
+        if not pairs:
+            return
+        pairs.append("updated_at=?")
+        vals.append(now_ms())
+        vals.append(node_id)
+        with self.lock, self.conn:
+            self.conn.execute(f"UPDATE nodes SET {', '.join(pairs)} WHERE id=?", vals)
+
+    def mark_deleted(self, node_id):
+        # Soft-delete descendants too.
+        stack = [node_id]
+        seen = set()
+        ts = now_ms()
+        with self.lock, self.conn:
+            while stack:
+                current = stack.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                children = self.conn.execute(
+                    "SELECT id FROM nodes WHERE parent_id=? AND deleted=0", (current,)
+                ).fetchall()
+                stack.extend(r["id"] for r in children)
+                self.conn.execute("UPDATE nodes SET deleted=1, updated_at=? WHERE id=?", (ts, current))
+                self.conn.execute("UPDATE attachments SET deleted=1, updated_at=? WHERE node_id=?", (ts, current))
+
+    def attachments(self, node_id, include_deleted=False):
+        with self.lock:
+            sql = "SELECT * FROM attachments WHERE node_id=?"
+            params = [node_id]
+            if not include_deleted:
+                sql += " AND deleted=0"
+            sql += " ORDER BY sort_order, updated_at"
+            return [dict(r) for r in self.conn.execute(sql, params).fetchall()]
+
+    def get_attachment(self, att_id):
+        with self.lock:
+            row = self.conn.execute("SELECT * FROM attachments WHERE id=?", (att_id,)).fetchone()
+            return dict(row) if row else None
+
+    def add_attachment(self, node_id, filename, mime, data):
+        att_id = uid()
+        with self.lock, self.conn:
+            row = self.conn.execute(
+                "SELECT COALESCE(MAX(sort_order),-1)+1 n FROM attachments WHERE node_id=? AND deleted=0",
+                (node_id,)
+            ).fetchone()
+            self.conn.execute("""
+                INSERT INTO attachments(id,node_id,filename,mime,data,sort_order,updated_at,deleted)
+                VALUES(?,?,?,?,?,?,?,0)
+            """, (att_id, node_id, filename, mime, data, int(row["n"]), now_ms()))
+        return att_id
+
+    def delete_attachment(self, att_id):
+        with self.lock, self.conn:
+            self.conn.execute(
+                "UPDATE attachments SET deleted=1, updated_at=? WHERE id=?",
+                (now_ms(), att_id)
+            )
+
+    def apply_client_state_changes(self, nodes, attachments):
+        # O nome antigo fica como salvaguarda para eventuais chamadas internas,
+        # mas nunca mais pode substituir cegamente dados locais.
+        self.merge_changes(nodes, attachments)
+        return
+        """
+        Aplica alterações pendentes do Android no servidor Python.
+        O servidor atribui o seu próprio updated_at, evitando conflitos de relógio.
+        """
+        server_ts = now_ms()
+        with self.lock, self.conn:
+            for n in nodes or []:
+                self.conn.execute("""
+                    INSERT INTO nodes(id,parent_id,kind,title,content,sort_order,updated_at,deleted)
+                    VALUES(?,?,?,?,?,?,?,?)
+                    ON CONFLICT(id) DO UPDATE SET
+                      parent_id=excluded.parent_id,
+                      kind=excluded.kind,
+                      title=excluded.title,
+                      content=excluded.content,
+                      sort_order=excluded.sort_order,
+                      updated_at=excluded.updated_at,
+                      deleted=excluded.deleted
+                """, (
+                    n["id"], n.get("parent_id"), n.get("kind","note"),
+                    n.get("title",""), n.get("content",""),
+                    int(n.get("sort_order",0)), server_ts,
+                    int(n.get("deleted",0))
+                ))
+
+            for a in attachments or []:
+                blob = base64.b64decode(a.get("data","")) if isinstance(a.get("data"), str) else a.get("data", b"")
+                self.conn.execute("""
+                    INSERT INTO attachments(id,node_id,filename,mime,data,sort_order,updated_at,deleted)
+                    VALUES(?,?,?,?,?,?,?,?)
+                    ON CONFLICT(id) DO UPDATE SET
+                      node_id=excluded.node_id,
+                      filename=excluded.filename,
+                      mime=excluded.mime,
+                      data=excluded.data,
+                      sort_order=excluded.sort_order,
+                      updated_at=excluded.updated_at,
+                      deleted=excluded.deleted
+                """, (
+                    a["id"], a["node_id"], a.get("filename","image"),
+                    a.get("mime","application/octet-stream"), blob,
+                    int(a.get("sort_order",0)), server_ts,
+                    int(a.get("deleted",0))
+                ))
+
+    def export_all(self):
+        """Exporta o estado completo, incluindo eliminações, para sincronização robusta."""
+        with self.lock:
+            nodes = [dict(r) for r in self.conn.execute(
+                "SELECT * FROM nodes ORDER BY updated_at"
+            ).fetchall()]
+            atts = []
+            for r in self.conn.execute(
+                "SELECT * FROM attachments ORDER BY updated_at"
+            ).fetchall():
+                d = dict(r)
+                d["data"] = base64.b64encode(d["data"]).decode("ascii")
+                atts.append(d)
+            return {
+                "nodes": nodes,
+                "attachments": atts,
+                "server_time": now_ms()
+            }
+
+    def export_changes(self, since):
+        with self.lock:
+            nodes = [dict(r) for r in self.conn.execute(
+                "SELECT * FROM nodes WHERE updated_at>? ORDER BY updated_at", (since,)
+            ).fetchall()]
+            atts = []
+            for r in self.conn.execute(
+                "SELECT * FROM attachments WHERE updated_at>? ORDER BY updated_at", (since,)
+            ).fetchall():
+                d = dict(r)
+                d["data"] = base64.b64encode(d["data"]).decode("ascii")
+                atts.append(d)
+            max_node = self.conn.execute("SELECT COALESCE(MAX(updated_at),0) m FROM nodes").fetchone()["m"]
+            max_att = self.conn.execute("SELECT COALESCE(MAX(updated_at),0) m FROM attachments").fetchone()["m"]
+            return {"nodes": nodes, "attachments": atts, "server_time": now_ms(), "max_updated": max(max_node, max_att)}
+
+    def merge_changes(self, nodes, attachments):
+        with self.lock, self.conn:
+            for n in nodes or []:
+                local = self.conn.execute("SELECT updated_at FROM nodes WHERE id=?", (n["id"],)).fetchone()
+                if not local or int(n.get("updated_at", 0)) > int(local["updated_at"]):
+                    self.conn.execute("""
+                        INSERT INTO nodes(id,parent_id,kind,title,content,sort_order,updated_at,deleted)
+                        VALUES(?,?,?,?,?,?,?,?)
+                        ON CONFLICT(id) DO UPDATE SET
+                          parent_id=excluded.parent_id, kind=excluded.kind, title=excluded.title,
+                          content=excluded.content, sort_order=excluded.sort_order,
+                          updated_at=excluded.updated_at, deleted=excluded.deleted
+                    """, (
+                        n["id"], n.get("parent_id"), n.get("kind","note"), n.get("title",""),
+                        n.get("content",""), int(n.get("sort_order",0)), int(n.get("updated_at",0)),
+                        int(n.get("deleted",0))
+                    ))
+            for a in attachments or []:
+                local = self.conn.execute("SELECT updated_at FROM attachments WHERE id=?", (a["id"],)).fetchone()
+                if not local or int(a.get("updated_at", 0)) > int(local["updated_at"]):
+                    blob = base64.b64decode(a.get("data","")) if isinstance(a.get("data"), str) else a.get("data", b"")
+                    self.conn.execute("""
+                        INSERT INTO attachments(id,node_id,filename,mime,data,sort_order,updated_at,deleted)
+                        VALUES(?,?,?,?,?,?,?,?)
+                        ON CONFLICT(id) DO UPDATE SET
+                          node_id=excluded.node_id, filename=excluded.filename, mime=excluded.mime,
+                          data=excluded.data, sort_order=excluded.sort_order,
+                          updated_at=excluded.updated_at, deleted=excluded.deleted
+                    """, (
+                        a["id"], a["node_id"], a.get("filename","image"),
+                        a.get("mime","application/octet-stream"), blob,
+                        int(a.get("sort_order",0)), int(a.get("updated_at",0)),
+                        int(a.get("deleted",0))
+                    ))
+
+
+class SyncHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    db = None
+    on_change = None
+
+    def log_message(self, format, *args):
+        return
+
+    def setup(self):
+        super().setup()
+        # Evita que um cliente incompleto mantenha uma thread presa indefinidamente.
+        self.connection.settimeout(30)
+
+    def _json(self, code, payload):
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(data)
+        self.wfile.flush()
+        self.close_connection = True
+
+    def _auth(self):
+        token = self.headers.get("X-Pair-Token", "")
+        return token and token == self.db.get_setting("pair_token")
+
+    def do_GET(self):
+        if self.path.startswith("/api/ping"):
+            if not self._auth():
+                return self._json(403, {"ok": False})
+            return self._json(200, {
+                "ok": True,
+                "app": APP_NAME,
+                "server_time": now_ms(),
+                "sync_protocol": SYNC_PROTOCOL_VERSION
+            })
+        self._json(404, {"error": "not found"})
+
+    def do_POST(self):
+        if self.path != "/api/sync":
+            return self._json(404, {"error": "not found"})
+        if not self._auth():
+            return self._json(403, {"error": "unauthorized"})
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0:
+                return self._json(400, {"error": "empty request"})
+            if length > MAX_SYNC_BODY_BYTES:
+                return self._json(413, {"error": "sync payload too large"})
+            body = self.rfile.read(length)
+            if len(body) != length:
+                return self._json(400, {"error": "incomplete request"})
+            req = json.loads(body.decode("utf-8") or "{}")
+            if int(req.get("sync_protocol", 0)) != SYNC_PROTOCOL_VERSION:
+                return self._json(409, {
+                    "error": "incompatible sync protocol",
+                    "required_sync_protocol": SYNC_PROTOCOL_VERSION
+                })
+            incoming_nodes = req.get("nodes", []) or []
+            incoming_attachments = req.get("attachments", []) or []
+            self.db.merge_changes(
+                incoming_nodes,
+                incoming_attachments
+            )
+            payload = self.db.export_all()
+            payload["sync_protocol"] = SYNC_PROTOCOL_VERSION
+            payload["stats"] = {
+                "received_nodes": len(incoming_nodes),
+                "received_attachments": len(incoming_attachments),
+                "nodes_total": len(payload.get("nodes", [])),
+                "attachments_total": len(payload.get("attachments", [])),
+                "visible_nodes": sum(
+                    1 for n in payload.get("nodes", [])
+                    if int(n.get("deleted", 0)) == 0
+                )
+            }
+            if self.on_change:
+                try:
+                    self.on_change()
+                except Exception:
+                    pass
+            return self._json(200, payload)
+        except Exception as e:
+            return self._json(500, {"error": str(e)})
+
+
+class PairWindow(Toplevel):
+    def __init__(self, master, db):
+        super().__init__(master)
+        self.title("Sincronizar Android")
+        self.resizable(False, False)
+        self.db = db
+        ip = local_ip()
+        token = db.get_setting("pair_token")
+        self.uri = f"treenotes://pair?host={ip}&port={PORT}&token={token}"
+        ttk.Label(self, text="Sincronizar dispositivo", font=("Segoe UI", 14, "bold")).pack(padx=20, pady=(18, 6))
+        ttk.Label(self, text=f"IP local: {ip}:{PORT}").pack(pady=2)
+        ttk.Label(self, text="Leia o QR na app Android ou introduza o IP manualmente.").pack(padx=20, pady=(4, 10))
+        self.qr_img = None
+        if qrcode is None:
+            ttk.Label(self, text="Para mostrar o QR: pip install qrcode").pack(pady=10)
+        else:
+            qr = qrcode.QRCode(box_size=7, border=2)
+            qr.add_data(self.uri)
+            qr.make(fit=True)
+            pil = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+            self.qr_img = ImageTk.PhotoImage(pil)
+            Label(self, image=self.qr_img, bd=0).pack(padx=20, pady=8)
+        e = ttk.Entry(self, width=62)
+        e.insert(0, self.uri)
+        e.configure(state="readonly")
+        e.pack(padx=20, pady=(8, 16))
+
+
+class App(Tk):
+
+    @staticmethod
+    def _app_icon_image(output_size=64):
+        """Usa exatamente o ícone fornecido pelo utilizador, apenas recolorido a verde."""
+        raw = base64.b64decode(TREENOTES_EXACT_ICON_B64)
+        image = Image.open(io.BytesIO(raw)).convert("RGBA")
+        resampling = getattr(Image, "Resampling", Image)
+        return image.resize((output_size, output_size), resampling.LANCZOS)
+
+    def _set_window_icon(self):
+        """Aplica várias resoluções nativas ao Tk para máxima nitidez."""
+        try:
+            # Manter as referências durante toda a vida da janela.
+            self._window_icons = [
+                ImageTk.PhotoImage(self._app_icon_image(size), master=self)
+                for size in (64, 48, 32, 16)
+            ]
+            self.iconphoto(True, *self._window_icons)
+        except Exception:
+            self._window_icons = []
+
+    def __init__(self):
+        super().__init__()
+        self.title(APP_NAME)
+        self._set_window_icon()
+
+
+        self.geometry("1180x675")
+        self.minsize(900, 560)
+        self.db = Database()
+        self.current_id = None
+        self.current_images = {}
+        self.current_image_widgets = {}
+        self.save_after_id = None
+        self.inline_entry = None
+        self.inline_edit_id = None
+        self.inline_edit_new = False
+        self.search_var = StringVar()
+        self.global_search_results = []
+        self.global_search_index = -1
+        self.global_search_after_id = None
+        self.active_search_term = ""
+        self.active_search_node_ids = set()
+        self.search_open_snapshot = None
+        self.status_var = StringVar(value="")
+        self.message_var = StringVar(value="")
+        self.server_address = ""
+        self.sync_refresh_event = threading.Event()
+        self.sync_poll_after_id = None
+        self.note_link_tags = []
+        self.build_style()
+        self.build_ui()
+        # Aplicar o tamanho inicial apenas depois de o Tk calcular o layout.
+        # Não limita redimensionamento/maximização; garante apenas a abertura em 1180x675.
+        self.update_idletasks()
+        self.geometry("1180x675")
+        self.load_tree()
+        self.start_server()
+        self.sync_poll_after_id = self.after(250, self.poll_sync_changes)
+        self.bind_all("<Control-f>", self.find_in_document)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def build_style(self):
+        self.configure(bg="#F3F5F7")
+        style = ttk.Style(self)
+
+        # Preferir o tema nativo moderno do Windows; nunca usar "clam".
+        available = style.theme_names()
+        if "vista" in available:
+            style.theme_use("vista")
+        elif "xpnative" in available:
+            style.theme_use("xpnative")
+        elif "default" in available:
+            style.theme_use("default")
+
+        style.configure(".", font=("Segoe UI", 10))
+        style.configure("App.TFrame", background="#F3F5F7")
+        style.configure("Panel.TFrame", background="#FFFFFF")
+        style.configure("Toolbar.TFrame", background="#FFFFFF")
+        style.configure("Toolbar.TButton", padding=(12, 7), font=("Segoe UI", 9))
+        style.configure("StatusIcon.TButton", padding=(2, 0), font=("Segoe UI", 8))
+        style.configure("Treeview",
+                        background="#FFFFFF",
+                        fieldbackground="#FFFFFF",
+                        foreground="#20242A",
+                        borderwidth=0,
+                        relief="flat",
+                        rowheight=30,
+                        font=("Segoe UI", 10))
+        style.map("Treeview",
+                  background=[("selected", "#DCEBE5")],
+                  foreground=[("selected", "#17382D")])
+        style.configure("TLabel", background="#F3F5F7", foreground="#30353B")
+        style.configure("Panel.TLabel", background="#FFFFFF", foreground="#30353B")
+        style.configure("Status.TLabel", background="#FFFFFF", foreground="#6B7280")
+        style.configure("TEntry", padding=6)
+
+    def build_ui(self):
+        # Estrutura vertical: toolbar / conteúdo expansível / barra de estado.
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=0)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=0)
+
+        toolbar = ttk.Frame(self, padding=(12, 7), style="Toolbar.TFrame")
+        toolbar.grid(row=0, column=0, sticky="ew")
+        ttk.Button(toolbar, text="Sincronizar", command=self.show_pair,
+                   style="Toolbar.TButton").pack(side=LEFT, padx=(0, 6))
+        ttk.Button(toolbar, text="+ Tópico", command=self.new_topic,
+                   style="Toolbar.TButton").pack(side=LEFT, padx=(0, 6))
+        ttk.Button(toolbar, text="+ Subtópico", command=self.new_subtopic,
+                   style="Toolbar.TButton").pack(side=LEFT, padx=(0, 6))
+        ttk.Button(toolbar, text="+ Nota", command=self.new_note,
+                   style="Toolbar.TButton").pack(side=LEFT, padx=(0, 6))
+        ttk.Button(toolbar, text="Imagem", command=self.insert_image,
+                   style="Toolbar.TButton").pack(side=LEFT, padx=(0, 6))
+        ttk.Button(toolbar, text="Exportar TXT", command=self.export_txt,
+                   style="Toolbar.TButton").pack(side=LEFT, padx=(0, 6))
+        body = ttk.Frame(self, padding=(12, 7, 12, 5), style="App.TFrame")
+        body.grid(row=1, column=0, sticky="nsew")
+
+        right = ttk.Frame(body, padding=12, style="Panel.TFrame")
+        right.pack(fill=BOTH, expand=True)
+
+        sf = ttk.Frame(right, style="Panel.TFrame")
+        sf.pack(fill=X, pady=(0, 8))
+        ttk.Label(sf, text="Pesquisar", style="Panel.TLabel").pack(side=LEFT)
+        self.search_entry = ttk.Entry(sf, textvariable=self.search_var)
+        self.search_entry.pack(side=LEFT, fill=X, expand=True, padx=(8, 4))
+        self.search_entry.bind("<Button-3>", self.search_context_menu)
+        self.search_prev_button = ttk.Button(
+            sf, text="◀", width=3, command=self.global_search_previous,
+            style="Toolbar.TButton"
+        )
+        self.search_prev_button.pack(side=LEFT, padx=(0, 2))
+
+        self.search_next_button = ttk.Button(
+            sf, text="▶", width=3, command=self.global_search_next,
+            style="Toolbar.TButton"
+        )
+        self.search_next_button.pack(side=LEFT)
+
+        self.search_var.trace_add("write", self.on_global_search_changed)
+
+        self.path_var = StringVar(value="Tópicos")
+        ttk.Label(
+            right, textvariable=self.path_var, style="Panel.TLabel",
+            font=("Segoe UI", 10, "bold")
+        ).pack(fill=X, pady=(0, 5))
+
+        title_row = ttk.Frame(right, style="Panel.TFrame")
+        title_row.pack(fill=X)
+        ttk.Label(title_row, text="Título", style="Panel.TLabel").pack(side=LEFT)
+        self.title_var = StringVar()
+        self.title_entry = ttk.Entry(title_row, textvariable=self.title_var, font=("Segoe UI", 12))
+        self.title_entry.pack(side=LEFT, fill=X, expand=True, padx=(8, 0))
+        self.title_var.trace_add("write", self.schedule_save)
+
+        # A área principal alterna entre a lista do nível seguinte e o conteúdo da nota.
+        self.content_host = Frame(
+            right, bg="#FFFFFF", bd=0, highlightthickness=1,
+            highlightbackground="#D8DDDA"
+        )
+        self.content_host.pack(fill=BOTH, expand=True, pady=(6, 0))
+
+        self.child_panel = Frame(self.content_host, bg="#FFFFFF", bd=0, highlightthickness=0)
+        self.child_list = ttk.Treeview(
+            self.child_panel,
+            show="tree",
+            selectmode="browse",
+            style="Treeview"
+        )
+        child_sb = ttk.Scrollbar(self.child_panel, orient=VERTICAL, command=self.child_list.yview)
+        self.child_list.configure(yscrollcommand=child_sb.set)
+        self.child_list.tag_configure("up", foreground="#20242A", font=("Segoe UI", 12))
+        self.child_list.pack(side=LEFT, fill=BOTH, expand=True)
+        child_sb.pack(side=RIGHT, fill=Y)
+        self.child_list.bind("<ButtonRelease-1>", self.on_child_click)
+        self.child_list.bind("<Double-1>", self.open_child_from_main)
+        self.child_list.bind("<Return>", self.open_child_from_main)
+        self.child_list.bind("<Button-3>", self.child_context_menu)
+        self.child_list.bind("<F2>", self.rename_selected)
+
+        self.editor_frame = Frame(self.content_host, bg="#FFFFFF", bd=0, highlightthickness=0)
+        self.editor_frame.columnconfigure(0, weight=1)
+        self.editor_frame.rowconfigure(1, weight=1)
+        # A barra pertence à caixa inteira e ocupa toda a altura, incluindo a
+        # linha dos "...". Assim não fica visualmente cortada no topo.
+        editor_sb = ttk.Scrollbar(self.editor_frame, orient=VERTICAL)
+        editor_sb.grid(row=0, column=1, rowspan=2, sticky="ns")
+        self.note_up_button = Button(
+            self.editor_frame, text="...", command=self.go_up_one_level,
+            relief=FLAT, borderwidth=0, highlightthickness=0,
+            bg="#FFFFFF", activebackground="#EEF3F0",
+            fg="#20242A", activeforeground="#20242A",
+            disabledforeground="#9AA09D",
+            font=("Segoe UI", 12),
+            state=DISABLED
+        )
+        # Na nota, os "..." também são um elemento do fluxo do conteúdo,
+        # em vez de um controlo sobreposto ou colocado numa barra.
+        self.note_up_button.grid(row=0, column=0, sticky="w", padx=8, pady=(3, 0))
+        self.note_up_button.grid_remove()
+
+        self.text = Text(self.editor_frame, wrap=WORD, undo=True, font=("Segoe UI", 11),
+                         padx=16, pady=14, relief="flat", borderwidth=0,
+                         bg="#FFFFFF", fg="#20242A", insertbackground="#20242A",
+                         selectbackground="#DCEBE5", selectforeground="#17382D")
+        editor_sb.configure(command=self.text.yview)
+        self.text.configure(yscrollcommand=editor_sb.set)
+        self.text.grid(row=1, column=0, sticky="nsew")
+        self.text.bind("<<Modified>>", self.on_text_modified)
+        self.text.bind("<Button-3>", self.content_context_menu)
+        self.image_inner = Frame(self.text, bg="#FFFFFF", bd=0)
+        self.text.bind("<Configure>", self.resize_inline_image_frame, add="+")
+
+        # Sem seleção inicial, a caixa fica realmente vazia: nem editor nem
+        # controlo de navegação são apresentados antes de existir uma seleção.
+        self.text.configure(state=DISABLED)
+        self.title_entry.configure(state=DISABLED)
+
+        status_bar = ttk.Frame(self, style="Toolbar.TFrame", padding=(8, 3))
+        status_bar.grid(row=2, column=0, sticky="ew")
+
+        status = ttk.Label(
+            status_bar,
+            textvariable=self.status_var,
+            anchor=W,
+            style="Status.TLabel"
+        )
+        status.pack(side=LEFT, fill=X, expand=True)
+
+        message = ttk.Label(
+            status_bar,
+            textvariable=self.message_var,
+            anchor=E,
+            style="Status.TLabel"
+        )
+        message.pack(side=LEFT, padx=(8, 6))
+
+        self.copy_server_button = ttk.Button(
+            status_bar,
+            text="⧉",
+            width=2,
+            command=self.copy_server_address,
+            style="StatusIcon.TButton"
+        )
+        self.copy_server_button.pack(side=RIGHT)
+
+    def start_server(self):
+        SyncHandler.db = self.db
+        # O handler corre noutra thread: apenas sinaliza. Toda a interação com
+        # Tk acontece depois, na thread principal, através de poll_sync_changes.
+        SyncHandler.on_change = self.sync_refresh_event.set
+        try:
+            self.server = ThreadingHTTPServer(("0.0.0.0", PORT), SyncHandler)
+            self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+            self.server_thread.start()
+            self.server_address = f"http://{local_ip()}:{PORT}"
+            storage = f"Dados: {APP_DIR}"
+            if USING_GOOGLE_DRIVE:
+                storage += " (Google Drive)"
+            elif USING_ONEDRIVE:
+                storage += " (OneDrive)"
+            else:
+                storage += " (armazenamento local; Google Drive e OneDrive não detetados)"
+            self.status_var.set(
+                f"Servidor: {self.server_address}  |  {storage}"
+            )
+        except Exception as e:
+            self.server = None
+            self.server_address = ""
+            storage = f"Dados: {APP_DIR}"
+            if USING_GOOGLE_DRIVE:
+                storage += " (Google Drive)"
+            elif USING_ONEDRIVE:
+                storage += " (OneDrive)"
+            else:
+                storage += " (armazenamento local; Google Drive e OneDrive não detetados)"
+            self.status_var.set(f"Servidor indisponível  |  {storage}")
+            self.message_var.set(str(e))
+
+    def poll_sync_changes(self):
+        self.sync_poll_after_id = None
+        try:
+            if self.sync_refresh_event.is_set():
+                self.sync_refresh_event.clear()
+                self.refresh_after_sync()
+        except Exception as e:
+            self.message_var.set(f"Erro ao atualizar após sincronização: {e}")
+        finally:
+            self.sync_poll_after_id = self.after(250, self.poll_sync_changes)
+
+    def copy_server_address(self):
+        if not self.server_address:
+            self.message_var.set("Servidor indisponível.")
+            return
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(self.server_address)
+            self.update()
+            self.message_var.set("Endereço do servidor copiado.")
+            self.after(2200, lambda: self.message_var.set(""))
+        except Exception as e:
+            self.message_var.set(f"Erro ao copiar: {e}")
+
+    def refresh_after_sync(self):
+        """Recarrega a árvore e a nota aberta após receber alterações do Android."""
+        selected = self.current_id
+
+        # Impede que um autosave pendente volte a gravar conteúdo antigo por cima
+        # da versão que acabou de chegar do Android.
+        if self.save_after_id:
+            try:
+                self.after_cancel(self.save_after_id)
+            except Exception:
+                pass
+            self.save_after_id = None
+
+        self.load_tree(select_id=selected, force_open_id=selected)
+
+        if not selected:
+            return
+
+        node = self.db.get_node(selected)
+        if not node or node.get("deleted"):
+            self.current_id = None
+            self.title_var.set("")
+            self.child_panel.pack_forget()
+            self.editor_frame.pack_forget()
+            self.text.configure(state=NORMAL)
+            self.text.delete("1.0", END)
+            self.current_images.clear()
+            self.text.configure(state=DISABLED)
+            self.title_entry.configure(state=DISABLED)
+            self.note_up_button.configure(state=DISABLED)
+            return
+
+        # Recarregar explicitamente o conteúdo, mesmo sendo a mesma nota já
+        # selecionada. O evento TreeviewSelect não o faria porque current_id
+        # continuava igual.
+        self.current_id = None
+        self.title_var.set(node["title"])
+        self.current_id = selected
+        self.update_up_button(node)
+
+        if node["kind"] == "note":
+            self.title_entry.configure(state=NORMAL)
+            self.text.configure(state=NORMAL)
+            self.load_note_content(node)
+        else:
+            self.title_entry.configure(state=NORMAL)
+            self.text.configure(state=NORMAL)
+            self.text.delete("1.0", END)
+            self.text.configure(state=DISABLED)
+            self.show_container_contents(selected)
+            self.text.configure(state=DISABLED)
+
+        if self.tree.exists(selected):
+            self.tree.selection_set(selected)
+            self.tree.focus(selected)
+            self.tree.see(selected)
+
+    def serialize_editor(self):
+        if not self.current_id:
+            return ""
+        stop = (
+            "image_section_start"
+            if "image_section_start" in self.text.mark_names()
+            else "end-1c"
+        )
+        return re.sub(
+            r"\[\[img:[^\]]+\]\]", "", self.text.get("1.0", stop)
+        )
+
+    def refresh_note_links(self):
+        """Realça URLs no editor sem alterar o texto guardado."""
+        try:
+            for tag in self.note_link_tags:
+                self.text.tag_delete(tag)
+            self.note_link_tags.clear()
+            stop = (
+                "image_section_start"
+                if "image_section_start" in self.text.mark_names()
+                else "end-1c"
+            )
+            content = self.text.get("1.0", stop)
+            for index, match in enumerate(NOTE_URL_RE.finditer(content)):
+                url = match.group(1).rstrip(".,;:!?)]}")
+                if not url:
+                    continue
+                start = f"1.0+{match.start()}c"
+                end = f"{start}+{len(url)}c"
+                tag = f"note_url_{index}"
+                self.note_link_tags.append(tag)
+                self.text.tag_add(tag, start, end)
+                self.text.tag_config(tag, foreground="#0563C1", underline=True)
+                self.text.tag_bind(
+                    tag, "<Enter>", lambda _event: self.text.configure(cursor="hand2")
+                )
+                self.text.tag_bind(
+                    tag, "<Leave>", lambda _event: self.text.configure(cursor="xterm")
+                )
+                self.text.tag_bind(
+                    tag, "<Button-1>",
+                    lambda _event, value=url: self.open_note_link(value)
+                )
+        except TclError:
+            pass
+
+    @staticmethod
+    def open_note_link(url):
+        if url.lower().startswith("www."):
+            url = "https://" + url
+        webbrowser.open_new_tab(url)
+        return "break"
+
+    def resize_inline_image_frame(self, event=None):
+        frame = getattr(self, "image_inner", None)
+        if frame is None:
+            return
+        try:
+            width = (event.width if event is not None else self.text.winfo_width()) - 40
+            frame.configure(width=max(120, width))
+        except TclError:
+            pass
+
+    def _insert_attachment_widget(self, att):
+        try:
+            im = Image.open(io.BytesIO(att["data"]))
+            im = ImageOps.exif_transpose(im)
+            available_width = max(160, self.text.winfo_width() - 80)
+            im.thumbnail(
+                (min(IMAGE_THUMBNAIL_SIZE[0], available_width), IMAGE_THUMBNAIL_SIZE[1]),
+                Image.Resampling.LANCZOS
+            )
+            photo = ImageTk.PhotoImage(im)
+            label = Label(
+                self.image_inner, image=photo, bg="#FFFFFF", bd=0,
+                cursor="hand2", padx=2, pady=2
+            )
+            att_id = att["id"]
+            label.bind("<Button-1>", lambda _event, aid=att_id: self.open_image_viewer(aid))
+            label.bind("<Button-3>", lambda event, aid=att_id: self.image_context_menu(event, aid))
+            self.current_images[att_id] = photo
+            self.current_image_widgets[att_id] = label
+            label.pack(fill=X, expand=True, padx=8, pady=5)
+            return True
+        except Exception:
+            return False
+
+    def load_note_content(self, node):
+        self.text.configure(state=NORMAL)
+        try:
+            self.text.mark_unset("image_section_start")
+        except TclError:
+            pass
+        self.text.delete("1.0", END)
+        try:
+            self.image_inner.destroy()
+        except (AttributeError, TclError):
+            pass
+        self.image_inner = Frame(self.text, bg="#FFFFFF", bd=0)
+        self.current_images.clear()
+        self.current_image_widgets.clear()
+        content = re.sub(r"\[\[img:[^\]]+\]\]", "", node.get("content", ""))
+        self.text.insert(END, content)
+        content_end = self.text.index("end-1c")
+        attachments = self.db.attachments(node["id"])
+        if attachments:
+            if content and not content.endswith("\n"):
+                self.text.insert(END, "\n")
+            self.resize_inline_image_frame()
+            for att in attachments:
+                self._insert_attachment_widget(att)
+            self.text.window_create(
+                END, window=self.image_inner, align=CENTER, padx=0, pady=6
+            )
+            self.text.mark_set("image_section_start", content_end)
+            self.text.mark_gravity("image_section_start", RIGHT)
+        self.refresh_note_links()
+        self.text.edit_modified(False)
+
+    def _all_tree_items(self, parent=""):
+        result = []
+        for iid in self.tree.get_children(parent):
+            result.append(iid)
+            result.extend(self._all_tree_items(iid))
+        return result
+
+    def _expand_ancestors(self, node_id):
+        current = self.db.get_node(node_id)
+        seen = set()
+        while current and current.get("parent_id"):
+            parent_id = current["parent_id"]
+            if parent_id in seen:
+                break
+            seen.add(parent_id)
+            if self.tree.exists(parent_id):
+                self.tree.item(parent_id, open=True)
+            current = self.db.get_node(parent_id)
+
+    def on_tree_button_press(self, event):
+        item_id = self.tree.identify_row(event.y)
+        element = self.tree.identify_element(event.x, event.y)
+        if (
+            item_id and "indicator" in element.lower()
+            and not self.tree.item(item_id, "open")
+        ):
+            self.pending_tree_open_id = item_id
+            self.after(120, lambda iid=item_id: self.reveal_expanded_branch(iid))
+
+    def on_tree_open(self, event=None):
+        item_id = getattr(self, "pending_tree_open_id", None) or self.tree.focus()
+        if item_id:
+            self.after(120, lambda iid=item_id: self.reveal_expanded_branch(iid))
+
+    def reveal_expanded_branch(self, item_id, retries=2):
+        if not self.tree.exists(item_id):
+            return
+        self.tree.update_idletasks()
+        if not self.tree.item(item_id, "open"):
+            if retries:
+                self.after(
+                    60,
+                    lambda iid=item_id, left=retries - 1:
+                        self.reveal_expanded_branch(iid, left)
+                )
+            return
+        self.pending_tree_open_id = None
+
+        def last_visible_descendant(parent_id):
+            children = self.tree.get_children(parent_id)
+            if not children:
+                return parent_id
+            last = children[-1]
+            if self.tree.item(last, "open"):
+                return last_visible_descendant(last)
+            return last
+
+        target = last_visible_descendant(item_id)
+        self.tree.see(target)
+        self.tree.update_idletasks()
+
+    def load_tree(self, select_id=None, force_open_id=None, open_ids_override=None):
+        target_id = select_id or self.current_id
+        target = self.db.get_node(target_id) if target_id else None
+        if target and not target.get("deleted"):
+            self.open_node(target_id, save_previous=False)
+        else:
+            self.open_root(save_previous=False)
+
+    def _select_all_content(self):
+        if str(self.text.cget("state")) == DISABLED:
+            return
+        self.text.tag_add(SEL, "1.0", "end-1c")
+        self.text.mark_set(INSERT, "end-1c")
+        self.text.see(INSERT)
+        self.text.focus_set()
+
+    def search_selected_content_on_google(self):
+        """Abre no browser predefinido uma pesquisa Google pelo texto selecionado."""
+        if str(self.text.cget("state")) == DISABLED:
+            return
+        try:
+            selected = self.text.get(SEL_FIRST, SEL_LAST).strip()
+        except TclError:
+            selected = ""
+        if not selected:
+            self.message_var.set("Selecione primeiro o texto que pretende pesquisar.")
+            return
+        webbrowser.open_new_tab("https://www.google.com/search?q=" + quote_plus(selected))
+
+    def content_context_menu(self, event):
+        if str(self.text.cget("state")) == DISABLED:
+            return "break"
+
+        menu = Menu(self, tearoff=0)
+        menu.add_command(label="Cortar", command=lambda: self.text.event_generate("<<Cut>>"))
+        menu.add_command(label="Copiar", command=lambda: self.text.event_generate("<<Copy>>"))
+        menu.add_command(label="Colar", command=lambda: self.text.event_generate("<<Paste>>"))
+        menu.add_separator()
+        menu.add_command(label="Selecionar tudo", command=self._select_all_content)
+        menu.add_separator()
+
+        try:
+            selected = bool(self.text.get(SEL_FIRST, SEL_LAST).strip())
+        except TclError:
+            selected = False
+        menu.add_command(
+            label="Pesquisar",
+            command=self.search_selected_content_on_google,
+            state=NORMAL if selected else DISABLED,
+        )
+
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def search_context_menu(self, event):
+        menu = Menu(self, tearoff=0)
+        menu.add_command(
+            label="Cortar",
+            command=lambda: self.search_entry.event_generate("<<Cut>>")
+        )
+        menu.add_command(
+            label="Copiar",
+            command=lambda: self.search_entry.event_generate("<<Copy>>")
+        )
+        menu.add_command(
+            label="Colar",
+            command=lambda: self.search_entry.event_generate("<<Paste>>")
+        )
+        menu.add_separator()
+        menu.add_command(
+            label="Selecionar tudo",
+            command=lambda: (
+                self.search_entry.selection_range(0, END),
+                self.search_entry.icursor(END)
+            )
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def on_global_search_changed(self, *_):
+        self.global_search_results = []
+        self.global_search_index = -1
+
+        if self.global_search_after_id:
+            try:
+                self.after_cancel(self.global_search_after_id)
+            except Exception:
+                pass
+            self.global_search_after_id = None
+        self.clear_search_highlight()
+        if self.active_search_term:
+            previous_open = self.search_open_snapshot or set()
+            self.active_search_term = ""
+            self.active_search_node_ids.clear()
+            self.search_open_snapshot = None
+            self.load_tree(open_ids_override=previous_open)
+
+    def start_global_search(self):
+        self.global_search_after_id = None
+        term = self.search_var.get().strip()
+        if not term:
+            return False
+
+        if self.search_open_snapshot is None:
+            self.search_open_snapshot = {
+                iid for iid in self._all_tree_items() if self.tree.item(iid, "open")
+            }
+        self.active_search_term = term
+
+        term_lower = term.lower()
+        results = []
+
+        # Cada ocorrência dentro de uma nota é um resultado individual.
+        for node in self.db.all_nodes():
+            if node.get("kind") != "note":
+                continue
+            content = node.get("content", "")
+            content_lower = content.lower()
+            start = 0
+            occurrence = 0
+            while True:
+                pos = content_lower.find(term_lower, start)
+                if pos < 0:
+                    break
+                results.append((node["id"], occurrence))
+                occurrence += 1
+                start = pos + max(1, len(term_lower))
+
+        self.global_search_results = results
+        self.global_search_index = -1
+        self.active_search_node_ids.clear()
+        node_map = {node["id"]: node for node in self.db.all_nodes()}
+        for node_id, _occurrence in results:
+            current = node_map.get(node_id)
+            while current:
+                self.active_search_node_ids.add(current["id"])
+                current = node_map.get(current.get("parent_id"))
+        self.load_tree()
+
+        if not results:
+            self.clear_search_highlight()
+            self.message_var.set("Nenhuma ocorrência encontrada no conteúdo das notas.")
+            return False
+        return True
+
+    def clear_search_highlight(self):
+        try:
+            self.text.tag_remove("global_find", "1.0", END)
+        except Exception:
+            pass
+
+    def global_search_next(self, event=None):
+        term = self.search_var.get().strip()
+        if not term:
+            return "break"
+
+        if term != self.active_search_term or not self.global_search_results:
+            if not self.start_global_search():
+                return "break"
+
+        if not self.global_search_results:
+            self.message_var.set("Nenhuma ocorrência encontrada no conteúdo das notas.")
+            return "break"
+
+        self.global_search_index = (self.global_search_index + 1) % len(self.global_search_results)
+        node_id, occurrence = self.global_search_results[self.global_search_index]
+
+        # A árvore pode estar filtrada; garante que o resultado fica visível.
+        if not self.tree.exists(node_id):
+            self.load_tree(select_id=node_id, force_open_id=node_id)
+
+        if self.tree.exists(node_id):
+            self.tree.selection_set(node_id)
+            self.tree.focus(node_id)
+            self._expand_ancestors(node_id)
+            self.tree.see(node_id)
+
+        # Abre efetivamente a nota no painel da direita.
+        if self.current_id != node_id:
+            self.on_tree_select()
+
+        self.highlight_global_occurrence(term, occurrence)
+
+        self.message_var.set(
+            f"Resultado {self.global_search_index + 1} de {len(self.global_search_results)}"
+        )
+        return "break"
+
+    def global_search_previous(self, event=None):
+        term = self.search_var.get().strip()
+        if not term:
+            return "break"
+
+        activated = term != self.active_search_term or not self.global_search_results
+        if activated:
+            if not self.start_global_search():
+                return "break"
+            self.global_search_index = 0
+
+        if not self.global_search_results:
+            self.message_var.set("Nenhuma ocorrência encontrada no conteúdo das notas.")
+            return "break"
+
+        self.global_search_index = (self.global_search_index - 1) % len(self.global_search_results)
+        node_id, occurrence = self.global_search_results[self.global_search_index]
+
+        if not self.tree.exists(node_id):
+            self.load_tree(select_id=node_id, force_open_id=node_id)
+
+        if self.tree.exists(node_id):
+            self.tree.selection_set(node_id)
+            self.tree.focus(node_id)
+            self._expand_ancestors(node_id)
+            self.tree.see(node_id)
+
+        if self.current_id != node_id:
+            self.on_tree_select()
+
+        self.highlight_global_occurrence(term, occurrence)
+        self.message_var.set(
+            f"Resultado {self.global_search_index + 1} de {len(self.global_search_results)}"
+        )
+        return "break"
+
+    def highlight_global_occurrence(self, term, occurrence):
+        self.clear_search_highlight()
+        if not term or not self.current_id:
+            return
+
+        start = "1.0"
+        found = None
+        for _ in range(occurrence + 1):
+            found = self.text.search(term, start, stopindex=END, nocase=True)
+            if not found:
+                break
+            start = f"{found}+{max(1, len(term))}c"
+
+        if not found:
+            return
+
+        end = f"{found}+{len(term)}c"
+        self.text.tag_add("global_find", found, end)
+        self.text.tag_config(
+            "global_find",
+            background="#FFE66D",
+            foreground="#20242A"
+        )
+
+        # Torna a ocorrência visível mesmo que esteja muito abaixo na nota.
+        self.text.see(found)
+
+    def selected_id(self):
+        sel = self.tree.selection()
+        return sel[0] if sel else None
+
+    def selected_parent_for_new(self):
+        sid = self.selected_id()
+        if not sid:
+            return None
+        n = self.db.get_node(sid)
+        if not n:
+            return None
+        return sid if n["kind"] == "topic" else n["parent_id"]
+
+    def new_topic(self):
+        # Tópico principal: sempre na raiz da árvore.
+        self.create_node_inline("topic", parent_id=None, default_title="Novo tópico")
+
+    def new_subtopic(self):
+        sid = self.selected_id()
+        if not sid:
+            self.message_var.set("Selecione um tópico para criar um subtópico.")
+            return
+        node = self.db.get_node(sid)
+        if not node or node["kind"] != "topic":
+            self.message_var.set("Os subtópicos são criados dentro do tópico selecionado.")
+            return
+        self.create_node_inline("topic", parent_id=sid, default_title="Novo subtópico")
+
+    def new_note(self):
+        parent_id = self.selected_parent_for_new()
+        self.create_node_inline("note", parent_id=parent_id, default_title="Nova nota")
+
+    def create_node_inline(self, kind, parent_id, default_title):
+        nid = self.db.create_node(parent_id, kind, default_title)
+
+        # Garante que todo o caminho até ao novo elemento fica visível.
+        self.load_tree(select_id=nid, force_open_id=nid)
+        if parent_id and self.tree.exists(parent_id):
+            self.tree.item(parent_id, open=True)
+
+        self.tree.selection_set(nid)
+        self.tree.focus(nid)
+        self.tree.see(nid)
+        self.after(60, lambda: self.begin_inline_edit(nid, is_new=True))
+
+    def begin_inline_edit(self, node_id, is_new=False):
+        self.cancel_inline_edit(keep_new=True)
+        if not node_id or not self.tree.exists(node_id):
+            return
+
+        self._expand_ancestors(node_id)
+        self.tree.see(node_id)
+        self.update_idletasks()
+        bbox = self.tree.bbox(node_id)
+        if not bbox:
+            self.after(80, lambda: self.begin_inline_edit(node_id, is_new))
+            return
+
+        x, y, w, h = bbox
+        node = self.db.get_node(node_id)
+        if not node:
+            return
+
+        # Entry colocado por cima da linha da árvore para edição direta.
+        self.inline_edit_id = node_id
+        self.inline_edit_new = is_new
+        self.inline_entry = Entry(
+            self.tree,
+            font=("Segoe UI", 10),
+            relief="solid",
+            bd=1,
+            bg="#FFFFFF",
+            fg="#20242A",
+            insertbackground="#20242A",
+            selectbackground="#DCEBE5",
+            selectforeground="#17382D"
+        )
+        self.inline_entry.insert(0, node["title"])
+        self.inline_entry.select_range(0, END)
+        # Alinhar o editor exatamente com a posição visual do texto na Treeview,
+        # evitando o pequeno "salto" para a esquerda ao entrar em edição.
+        edit_x = x + 30
+        edit_w = max(120, w - 30)
+        self.inline_entry.place(x=edit_x, y=y, width=edit_w, height=h)
+        self.inline_entry.focus_set()
+        self.inline_entry.bind("<Return>", self.commit_inline_edit)
+        self.inline_entry.bind("<Escape>", lambda e: self.cancel_inline_edit())
+        self.inline_entry.bind("<FocusOut>", self.commit_inline_edit)
+
+    def commit_inline_edit(self, event=None):
+        if not self.inline_entry or not self.inline_edit_id:
+            return
+        node_id = self.inline_edit_id
+        is_new = self.inline_edit_new
+        name = self.inline_entry.get().strip()
+
+        self.inline_entry.destroy()
+        self.inline_entry = None
+        self.inline_edit_id = None
+        self.inline_edit_new = False
+
+        if not name:
+            if is_new:
+                self.db.mark_deleted(node_id)
+                self.load_tree()
+            return
+
+        self.db.update_node(node_id, title=name)
+        if node_id == self.current_id:
+            self.title_var.set(name)
+        self.load_tree(select_id=node_id, force_open_id=node_id)
+
+        node = self.db.get_node(node_id)
+        if node and node["kind"] == "note":
+            self.tree.selection_set(node_id)
+            self.on_tree_select()
+
+    def cancel_inline_edit(self, keep_new=False):
+        if not self.inline_entry:
+            return
+        node_id = self.inline_edit_id
+        is_new = self.inline_edit_new
+        try:
+            self.inline_entry.destroy()
+        except Exception:
+            pass
+        self.inline_entry = None
+        self.inline_edit_id = None
+        self.inline_edit_new = False
+
+        if is_new and not keep_new and node_id:
+            self.db.mark_deleted(node_id)
+            self.load_tree()
+
+    def save_current(self):
+        if not self.current_id:
+            return
+        n = self.db.get_node(self.current_id)
+        if not n or n["kind"] != "note":
+            return
+        title = self.title_var.get().strip() or "Sem título"
+        content = self.serialize_editor()
+        old_title = n["title"]
+        if title == old_title and content == n.get("content", ""):
+            self.text.edit_modified(False)
+            return
+        self.db.update_node(self.current_id, title=title, content=content)
+        self.text.edit_modified(False)
+        self.message_var.set("Guardado automaticamente")
+        self.after(1500, lambda: self.message_var.set(
+            "" if self.message_var.get() == "Guardado automaticamente" else self.message_var.get()
+        ))
+
+        # Se o título mudou, a posição na árvore pode mudar por ordenação natural.
+        if title != old_title:
+            self.load_tree(select_id=self.current_id, force_open_id=self.current_id)
+
+    def schedule_save(self, *_):
+        if self.save_after_id:
+            self.after_cancel(self.save_after_id)
+        self.save_after_id = self.after(700, self.save_current)
+
+    def on_text_modified(self, event=None):
+        if self.text.edit_modified():
+            self.text.edit_modified(False)
+            self.schedule_save()
+            self.after_idle(self.refresh_note_links)
+
+    def show_container_contents(self, node_id):
+        """Mostra na área principal apenas os filhos imediatos de um tópico/subtópico."""
+        self.editor_frame.pack_forget()
+        self.child_panel.pack(fill=BOTH, expand=True)
+        self.child_list.delete(*self.child_list.get_children())
+
+        node = self.db.get_node(node_id)
+        can_go_up = bool(node and node.get("parent_id"))
+        if can_go_up:
+            self.child_list.insert("", END, iid=UP_ITEM_ID, text="...", tags=("up",))
+
+        for child in self.db.child_nodes(node_id):
+            prefix = "📁  " if child["kind"] == "topic" else "📝  "
+            self.child_list.insert("", END, iid=child["id"], text=prefix + child["title"])
+
+    def show_note_editor(self, node):
+        self.child_panel.pack_forget()
+        self.editor_frame.pack(fill=BOTH, expand=True)
+        self.title_entry.configure(state=NORMAL)
+        self.text.configure(state=NORMAL)
+        self.load_note_content(node)
+
+    def on_child_click(self, event):
+        """Faz dos "..." um item clicável da própria lista de conteúdo."""
+        if self.child_list.identify_row(event.y) == UP_ITEM_ID:
+            self.go_up_one_level()
+            return "break"
+
+    def open_child_from_main(self, event=None):
+        iid = None
+        if event is not None and hasattr(event, "y"):
+            iid = self.child_list.identify_row(event.y)
+        if not iid:
+            sel = self.child_list.selection()
+            iid = sel[0] if sel else None
+        if not iid:
+            return "break"
+
+        if iid == UP_ITEM_ID:
+            self.go_up_one_level()
+            return "break"
+
+        if self.tree.exists(iid):
+            self._expand_ancestors(iid)
+            self.tree.selection_set(iid)
+            self.tree.focus(iid)
+            self.tree.see(iid)
+            self.on_tree_select()
+        return "break"
+
+    def go_up_one_level(self):
+        """Sobe para o elemento pai imediato do item atualmente aberto."""
+        if not self.current_id:
+            return
+        node = self.db.get_node(self.current_id)
+        if not node:
+            return
+        parent_id = node.get("parent_id")
+        if not parent_id:
+            return
+        if self.tree.exists(parent_id):
+            self._expand_ancestors(parent_id)
+            self.tree.selection_set(parent_id)
+            self.tree.focus(parent_id)
+            self.tree.see(parent_id)
+            self.on_tree_select()
+
+    def update_up_button(self, node=None):
+        if not hasattr(self, "note_up_button"):
+            return
+        if node is None and self.current_id:
+            node = self.db.get_node(self.current_id)
+        enabled = bool(node and node.get("parent_id"))
+        if enabled:
+            self.note_up_button.configure(state=NORMAL)
+            self.note_up_button.grid()
+        else:
+            self.note_up_button.configure(state=DISABLED)
+            self.note_up_button.grid_remove()
+
+    def on_tree_select(self, event=None):
+        sid = self.selected_id()
+        if not sid:
+            return
+
+        if sid == self.current_id:
+            # A árvore pode ter sido reconstruída; garante que o painel principal está coerente.
+            n = self.db.get_node(sid)
+            if n:
+                self.update_up_button(n)
+                if n["kind"] == "topic":
+                    self.show_container_contents(sid)
+            return
+
+        if self.current_id:
+            current = self.db.get_node(self.current_id)
+            if current and current["kind"] == "note":
+                self.save_current()
+
+        self.current_id = sid
+        n = self.db.get_node(sid)
+        if not n:
+            return
+
+        self.title_var.set(n["title"])
+        self.title_entry.configure(state=NORMAL)
+        self.update_up_button(n)
+
+        if n["kind"] == "note":
+            self.show_note_editor(n)
+        else:
+            self.text.configure(state=NORMAL)
+            self.text.delete("1.0", END)
+            self.text.configure(state=DISABLED)
+            self.show_container_contents(sid)
+
+    def rename_selected(self, event=None):
+        sid = None
+        if event is not None and hasattr(event, "y"):
+            sid = self.tree.identify_row(event.y)
+        sid = sid or self.selected_id()
+        if not sid:
+            return "break"
+
+        self.tree.selection_set(sid)
+        self.tree.focus(sid)
+        self.begin_inline_edit(sid, is_new=False)
+        return "break"
+
+    def delete_selected(self):
+        sid = self.selected_id()
+        if not sid:
+            return
+        n = self.db.get_node(sid)
+        if messagebox.askyesno("Eliminar", f"Eliminar «{n['title']}» e todo o seu conteúdo?", parent=self):
+            self.db.mark_deleted(sid)
+            if sid == self.current_id:
+                self.current_id = None
+                self.title_var.set("")
+                self.child_panel.pack_forget()
+                self.editor_frame.pack_forget()
+                self.text.configure(state=NORMAL)
+                self.text.delete("1.0", END)
+                self.text.configure(state=DISABLED)
+                self.title_entry.configure(state=DISABLED)
+                self.note_up_button.configure(state=DISABLED)
+            self.load_tree()
+
+    def image_context_menu(self, event, att_id):
+        menu = Menu(self, tearoff=0)
+        menu.add_command(
+            label="Eliminar imagem",
+            command=lambda: self.delete_image(att_id)
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def delete_image(self, att_id):
+        att = self.db.get_attachment(att_id)
+        if not att or att.get("deleted"):
+            return
+        if not messagebox.askyesno(
+            "Eliminar imagem", "Eliminar esta imagem?", parent=self
+        ):
+            return
+        self.db.delete_attachment(att_id)
+        if self.current_id:
+            node = self.db.get_node(self.current_id)
+            if node and node.get("kind") == "note":
+                self.load_note_content(node)
+        self.message_var.set("Imagem eliminada")
+
+    def prepare_image_for_storage(self, path):
+        with Image.open(path) as opened:
+            image = ImageOps.exif_transpose(opened)
+            image.thumbnail(
+                (MAX_STORED_IMAGE_DIMENSION, MAX_STORED_IMAGE_DIMENSION),
+                Image.Resampling.LANCZOS
+            )
+            has_alpha = image.mode in ("RGBA", "LA") or (
+                image.mode == "P" and "transparency" in image.info
+            )
+            output = io.BytesIO()
+            if has_alpha:
+                image.convert("RGBA").save(output, format="PNG", optimize=True)
+                return output.getvalue(), "image/png", Path(path).stem + ".png"
+            image.convert("RGB").save(
+                output, format="JPEG", quality=88, optimize=True, progressive=True
+            )
+            return output.getvalue(), "image/jpeg", Path(path).stem + ".jpg"
+
+    def open_image_viewer(self, att_id):
+        att = self.db.get_attachment(att_id)
+        if not att or att.get("deleted"):
+            return
+        try:
+            source = ImageOps.exif_transpose(
+                Image.open(io.BytesIO(att["data"]))
+            ).convert("RGBA")
+            source.load()
+        except Exception as exc:
+            messagebox.showerror(APP_NAME, f"Não foi possível abrir a imagem:\n{exc}")
+            return
+
+        viewer = Toplevel(self)
+        viewer.title(att.get("filename") or "Imagem")
+        viewer.configure(bg="#111111")
+        viewer.transient(self)
+        width = max(640, int(self.winfo_screenwidth() * 0.82))
+        height = max(480, int(self.winfo_screenheight() * 0.82))
+        viewer.geometry(f"{width}x{height}")
+        canvas = Canvas(viewer, bg="#111111", highlightthickness=0, cursor="hand2")
+        canvas.pack(fill=BOTH, expand=True)
+        state = {
+            "scale": 1.0, "fit": 1.0, "x": width / 2, "y": height / 2,
+            "photo": None, "press": None, "long_after": None,
+            "pan": False, "moved": False
         }
-        applyingRemote=true;
-        notes=(data||[]).map(row=>({id:row.id,text:row.text,createdAt:row.created_at,updatedAt:row.updated_at}));
-        localStorage.setItem(KEY,JSON.stringify(notes)); applyingRemote=false; render(); status.textContent='Sincronizado';
-      }
-      function subscribe(){
-        if(channel)client.removeChannel(channel);
-        channel=client.channel('notes-'+session.user.id).on('postgres_changes',{event:'*',schema:'public',table:'notes',filter:`user_id=eq.${session.user.id}`},()=>{
-          if(!active)loadRemote();
-        }).subscribe();
-      }
-      function esc(s=''){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-      function highlighted(text,q){
-        const safe=esc(text); if(!q)return safe;
-        const pattern=esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-        return safe.replace(new RegExp(pattern,'gi'),m=>`<mark>${m}</mark>`);
-      }
-      function linked(text,q){
-        const urlRe=/https?:\/\/[^\s]+/gi; let out='',last=0,match;
-        while((match=urlRe.exec(text))){ out+=highlighted(text.slice(last,match.index),q); const url=match[0]; out+=`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${highlighted(url,q)}</a>`; last=match.index+url.length; }
-        return (out+highlighted(text.slice(last),q)).replace(/\n/g,'<br>');
-      }
-      function render(focusId){
-        const q=$('#search').value.trim().toLocaleLowerCase('pt-PT'); notesEl.innerHTML='';
-        const shown=notes.filter(n=>!q||n.text.toLocaleLowerCase('pt-PT').includes(q));
-        if(!shown.length){ notesEl.innerHTML=`<div class="empty"><strong>${q?'Nenhuma nota encontrada':'Ainda não há notas'}</strong>${q?'Experimente outra pesquisa.':'Clique abaixo e escreva a primeira.'}</div>`; updateSearchControls(0,q); return; }
-        shown.forEach(n=>{ const el=document.createElement('div'); el.className='note'; el.dataset.id=n.id; el.tabIndex=0; el.innerHTML=linked(n.text,q)||'<span style="color:var(--muted)">Nota vazia</span>'; notesEl.appendChild(el); });
-        const total=notesEl.querySelectorAll('mark').length; resultIndex=-1;
-        updateSearchControls(total,q);
-        if(q) status.textContent=total?`${total} ${total===1?'resultado':'resultados'} · F3 para navegar`:'Sem resultados';
-        if(focusId) requestAnimationFrame(()=>edit(notesEl.querySelector(`[data-id="${focusId}"]`)));
-      }
-      function add(){ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
-      function edit(el){
-        if(!el||el===active)return;
-        const id=el.dataset.id;
-        finish();
-        // finish() reconstrói a lista; recuperar o elemento atual evita editar uma referência já removida.
-        el=notesEl.querySelector(`[data-id="${id}"]`);
-        if(!el)return;
-        active=el;
-        const n=notes.find(x=>x.id===id);
-        el.contentEditable='true'; el.textContent=n.text; el.focus();
-        const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
-        const s=getSelection(); s.removeAllRanges(); s.addRange(r);
-      }
-      function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ n.text=active.innerText.replace(/\n+$/,''); n.updatedAt=new Date().toISOString(); } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); }
-      function remove(id){ const n=notes.find(x=>x.id===id); if(n&&confirm(`Eliminar esta nota?\n\n${n.text.slice(0,100)}`)){ notes=notes.filter(x=>x.id!==id); persist(); render(); toast('Nota eliminada'); } }
-      function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
-      function openMenu(x,y,target){ menuTarget=target; menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
-      function closeMenu(){ menu.classList.remove('open'); menuTarget=null; }
-      notesEl.addEventListener('click',e=>{ const el=e.target.closest('.note'); if(!el)return; if(e.target.closest('a')) return; edit(el); });
-      notesEl.addEventListener('dblclick',e=>{ const el=e.target.closest('.note'); if(el&&el===active){ e.preventDefault(); finish(); } });
-      notesEl.addEventListener('input',()=>{ if(active) status.textContent='A guardar…'; });
-      notesEl.addEventListener('contextmenu',e=>{ const el=e.target.closest('.note'); if(!el)return; e.preventDefault(); if(el===active) openMenu(e.clientX,e.clientY,active); else remove(el.dataset.id); });
-      $('#search').addEventListener('contextmenu',e=>{ e.preventDefault(); openMenu(e.clientX,e.clientY,e.currentTarget); });
-      document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.menu')&&!e.target.closest('.note')) finish(); else if(!e.target.closest('.menu')) closeMenu(); });
-      menu.addEventListener('pointerdown',e=>e.preventDefault());
-      menu.addEventListener('click',async e=>{ const cmd=e.target.closest('button')?.dataset.command,target=menuTarget; if(!cmd||!target)return; target.focus(); if(cmd==='paste'){ try { document.execCommand('insertText',false,await navigator.clipboard.readText()); } catch { toast('Use Ctrl+V para colar'); } } else document.execCommand(cmd); closeMenu(); });
-      notesEl.addEventListener('pointerdown',e=>{ const el=e.target.closest('.note'); if(!el||el===active||e.button!==0)return; pressTimer=setTimeout(()=>startDrag(el,e.pointerId),420); });
-      function startDrag(el,pointerId){ drag=el; el.classList.add('dragging'); el.setPointerCapture?.(pointerId); document.body.style.userSelect='none'; }
-      notesEl.addEventListener('pointermove',e=>{ if(!drag)return; const els=[...notesEl.querySelectorAll('.note:not(.dragging)')]; dropIndex=els.findIndex(el=>e.clientY<el.getBoundingClientRect().top+el.offsetHeight/2); if(dropIndex<0)dropIndex=els.length; let line=$('.drop-line'); if(!line){ line=document.createElement('div'); line.className='drop-line'; notesEl.appendChild(line); } const ref=els[dropIndex]; line.style.top=(ref?ref.offsetTop:notesEl.scrollHeight)+'px'; });
-      function endDrag(){ clearTimeout(pressTimer); if(!drag)return; const id=drag.dataset.id, from=notes.findIndex(n=>n.id===id); const [n]=notes.splice(from,1); notes.splice(dropIndex??from,0,n); drag.classList.remove('dragging'); drag=null; dropIndex=null; document.body.style.userSelect=''; $('.drop-line')?.remove(); persist(); render(); toast('Nota reorganizada'); }
-      notesEl.addEventListener('pointerup',endDrag); notesEl.addEventListener('pointercancel',endDrag); document.addEventListener('pointerup',()=>clearTimeout(pressTimer));
-      function nextResult(back=false){
-        const marks=[...notesEl.querySelectorAll('mark')]; if(!marks.length)return;
-        marks.forEach(m=>m.classList.remove('current'));
-        resultIndex=(resultIndex+(back?-1:1)+marks.length)%marks.length;
-        marks[resultIndex].classList.add('current'); marks[resultIndex].scrollIntoView({behavior:'smooth',block:'center'});
-        $('#resultCount').textContent=`${resultIndex+1} / ${marks.length}`;
-        status.textContent=`Resultado ${resultIndex+1} de ${marks.length}`;
-      }
-      function updateSearchControls(total,q){
-        $('#resultCount').textContent=q?(total?`0 / ${total}`:'0 / 0'):'';
-        $('#prevResult').disabled=$('#nextResult').disabled=!total;
-      }
-      $('#addBtn').onclick=add; $('#search').oninput=()=>render();
-      $('#prevResult').onclick=()=>nextResult(true); $('#nextResult').onclick=()=>nextResult(false);
-      $('#exportBtn').onclick=()=>{ finish(); const blob=new Blob([JSON.stringify(notes,null,2)],{type:'application/json'}),a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='treenotes.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('treenotes.json exportado'); };
-      $('#importBtn').onclick=()=>$('#fileInput').click();
-      $('#fileInput').onchange=async e=>{ try { const data=JSON.parse(await e.target.files[0].text()); if(!Array.isArray(data))throw 0; if(notes.length&&!confirm('Substituir as notas atuais pelas notas do ficheiro?'))return; notes=data.map(n=>({id:n.id||crypto.randomUUID(),text:String(n.text||''),createdAt:n.createdAt||new Date().toISOString(),updatedAt:n.updatedAt||new Date().toISOString()})); persist(); render(); toast('Notas importadas'); } catch { alert('O ficheiro não contém notas válidas.'); } e.target.value=''; };
-      const savedTheme=localStorage.getItem('notas-theme'); if(savedTheme)document.documentElement.dataset.theme=savedTheme;
-      $('#themeBtn').onclick=()=>{ const next=document.documentElement.dataset.theme==='dark'?'light':'dark'; document.documentElement.dataset.theme=next; localStorage.setItem('notas-theme',next); };
-      document.addEventListener('keydown',e=>{ if(e.key==='F3'){ e.preventDefault(); nextResult(e.shiftKey); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); add(); } if(e.key==='Escape')finish(); });
-      window.addEventListener('beforeunload',()=>{ if(active){ const n=notes.find(x=>x.id===active.dataset.id); if(n)n.text=active.innerText; } localStorage.setItem(KEY,JSON.stringify(notes)); });
-      async function showSession(nextSession,{offerMigration=false}={}){
-        session=nextSession;
-        if(!session){
-          currentUserId=null; $('#app').hidden=true; $('#authCard').hidden=false;
-          if(channel&&client){ client.removeChannel(channel); channel=null; }
-          return;
-        }
-        const changed=currentUserId!==session.user.id; currentUserId=session.user.id;
-        $('#authCard').hidden=true; $('#app').hidden=false; $('#accountEmail').textContent=session.user.email||'';
-        await loadRemote({offerMigration:offerMigration&&changed}); subscribe();
-      }
-      $('#authForm').addEventListener('submit',async e=>{
-        e.preventDefault();
-        const button=$('#loginBtn'),email=$('#email').value.trim(),password=$('#password').value;
-        if(authMode==='recovery'){
-          if(password.length<6){ $('#authMessage').textContent='A nova palavra-passe deve ter pelo menos 6 caracteres.'; return; }
-          button.disabled=true; $('#authMessage').textContent='A guardar a nova palavra-passe…';
-          const {error}=await client.auth.updateUser({password}); button.disabled=false;
-          if(error){ $('#authMessage').textContent=`Erro: ${error.message}`; return; }
-          authMode='login'; $('#email').disabled=false; $('#email').hidden=false; $('#signupBtn').hidden=false; $('#forgotBtn').hidden=false; button.textContent='Entrar';
-          $('#authMessage').textContent='Palavra-passe definida. A abrir as notas…'; await showSession((await client.auth.getSession()).data.session);
-          return;
-        }
-        button.disabled=$('#signupBtn').disabled=true; $('#authMessage').textContent='A entrar…';
-        const {error}=await client.auth.signInWithPassword({email,password});
-        button.disabled=$('#signupBtn').disabled=false;
-        $('#authMessage').textContent=error?`Erro: ${error.message}`:'Sessão iniciada.';
-      });
-      $('#signupBtn').onclick=async()=>{
-        const email=$('#email').value.trim(),password=$('#password').value;
-        if(!email||password.length<6){ $('#authMessage').textContent='Introduza um e-mail e uma palavra-passe com pelo menos 6 caracteres.'; return; }
-        $('#loginBtn').disabled=$('#signupBtn').disabled=true; $('#authMessage').textContent='A criar conta…';
-        const redirectTo=/^https?:$/.test(location.protocol)?location.origin+location.pathname:undefined;
-        const options=redirectTo?{emailRedirectTo:redirectTo}:undefined;
-        const {data,error}=await client.auth.signUp({email,password,options});
-        $('#loginBtn').disabled=$('#signupBtn').disabled=false;
-        if(error)$('#authMessage').textContent=`Erro: ${error.message}`;
-        else if(data.session)$('#authMessage').textContent='Conta criada e sessão iniciada.';
-        else $('#authMessage').textContent='Conta criada. Confirme o e-mail uma única vez e depois entre com a palavra-passe.';
-      };
-      $('#forgotBtn').onclick=async()=>{
-        const email=$('#email').value.trim();
-        if(!email){ $('#authMessage').textContent='Introduza primeiro o seu e-mail.'; return; }
-        const redirectTo=/^https?:$/.test(location.protocol)?location.origin+location.pathname:undefined;
-        $('#forgotBtn').disabled=true; $('#authMessage').textContent='A enviar instruções…';
-        const {error}=await client.auth.resetPasswordForEmail(email,redirectTo?{redirectTo}:undefined);
-        $('#forgotBtn').disabled=false;
-        $('#authMessage').textContent=error?`Erro: ${error.message}`:'E-mail enviado. Abra a ligação para definir uma nova palavra-passe.';
-      };
-      $('#logoutBtn').onclick=async()=>{ await syncRemote(); await client.auth.signOut(); };
-      async function init(){
-        const configured=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('COLE_AQUI')&&!SUPABASE_PUBLISHABLE_KEY.includes('COLE_AQUI');
-        $('#authCard').hidden=false;
-        if(!configured){
-          $('#authForm').hidden=true;
-          $('#authMessage').innerHTML='Configure <strong>SUPABASE_URL</strong> e <strong>SUPABASE_PUBLISHABLE_KEY</strong> no código de notes.html. Consulte CONFIGURAR-SUPABASE.md.';
-          return;
-        }
-        let normalizedProjectUrl;
-        try {
-          const projectUrl=new URL(SUPABASE_URL);
-          if(!projectUrl.hostname.endsWith('.supabase.co')&&!projectUrl.hostname.endsWith('.supabase.net')){
-            throw new Error('URL inesperado');
-          }
-          normalizedProjectUrl=projectUrl.origin;
-        } catch {
-          $('#authForm').hidden=true;
-          $('#authMessage').textContent='O SUPABASE_URL não parece pertencer a um projeto Supabase.';
-          return;
-        }
-        client=window.supabase.createClient(normalizedProjectUrl,SUPABASE_PUBLISHABLE_KEY);
-        const {data:{session:initialSession}}=await client.auth.getSession();
-        await showSession(initialSession,{offerMigration:true});
-        client.auth.onAuthStateChange((event,nextSession)=>{
-          if(event==='PASSWORD_RECOVERY'){
-            setTimeout(()=>{
-              session=nextSession; authMode='recovery'; $('#app').hidden=true; $('#authCard').hidden=false;
-              $('#email').disabled=true; $('#email').hidden=true; $('#signupBtn').hidden=true; $('#forgotBtn').hidden=true;
-              $('#password').value=''; $('#password').placeholder='Nova palavra-passe'; $('#password').autocomplete='new-password';
-              $('#loginBtn').textContent='Guardar palavra-passe'; $('#authMessage').textContent='Escolha agora a sua nova palavra-passe.';
-            },0);
-            return;
-          }
-          if(event==='SIGNED_IN'&&nextSession?.user.id===currentUserId)return;
-          setTimeout(()=>showSession(nextSession,{offerMigration:event==='SIGNED_IN'}),0);
-        });
-      }
-      render(); init();
-    })();
-  </script>
-</body>
-</html>
+
+        def render():
+            scaled_w = max(1, int(source.width * state["scale"]))
+            scaled_h = max(1, int(source.height * state["scale"]))
+            resized = source.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+            state["photo"] = ImageTk.PhotoImage(resized)
+            canvas.delete("image")
+            canvas.create_image(
+                state["x"], state["y"], image=state["photo"],
+                anchor=CENTER, tags=("image",)
+            )
+
+        def fit_image(_event=None):
+            cw, ch = max(1, canvas.winfo_width()), max(1, canvas.winfo_height())
+            state["fit"] = min(cw / source.width, ch / source.height, 1.0)
+            state["scale"] = state["fit"]
+            state["x"], state["y"] = cw / 2, ch / 2
+            render()
+
+        def zoom(event):
+            factor = 1.15 if event.delta > 0 else 1 / 1.15
+            state["scale"] = min(max(state["scale"] * factor, state["fit"]), 6.0)
+            render()
+            return "break"
+
+        def enable_pan():
+            if state["press"] is not None:
+                state["pan"] = True
+                canvas.configure(cursor="fleur")
+
+        def press(event):
+            state["press"] = (event.x, event.y)
+            state["moved"] = False
+            state["pan"] = False
+            state["long_after"] = viewer.after(350, enable_pan)
+
+        def move(event):
+            if not state["pan"] or state["press"] is None:
+                return
+            old_x, old_y = state["press"]
+            state["x"] += event.x - old_x
+            state["y"] += event.y - old_y
+            state["press"] = (event.x, event.y)
+            state["moved"] = True
+            render()
+
+        def release(_event):
+            if state["long_after"] is not None:
+                try:
+                    viewer.after_cancel(state["long_after"])
+                except Exception:
+                    pass
+            should_close = not state["pan"] and not state["moved"]
+            state["press"] = None
+            state["pan"] = False
+            canvas.configure(cursor="hand2")
+            if should_close:
+                viewer.destroy()
+
+        canvas.bind("<Configure>", fit_image)
+        canvas.bind("<MouseWheel>", zoom)
+        canvas.bind("<ButtonPress-1>", press)
+        canvas.bind("<B1-Motion>", move)
+        canvas.bind("<ButtonRelease-1>", release)
+        viewer.bind("<Escape>", lambda _event: viewer.destroy())
+
+    def insert_image(self):
+        if not self.current_id:
+            messagebox.showinfo(APP_NAME, "Selecione uma nota.")
+            return
+        n = self.db.get_node(self.current_id)
+        if not n or n["kind"] != "note":
+            messagebox.showinfo(APP_NAME, "As imagens só podem ser inseridas em notas.")
+            return
+        path = filedialog.askopenfilename(
+            title="Inserir imagem",
+            filetypes=[("Imagens", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"), ("Todos os ficheiros", "*.*")]
+        )
+        if not path:
+            return
+        try:
+            size = Path(path).stat().st_size
+            if size > MAX_ATTACHMENT_BYTES:
+                raise ValueError("A imagem excede o limite de 25 MB.")
+            data, mime, filename = self.prepare_image_for_storage(path)
+            if len(data) > MAX_ATTACHMENT_BYTES:
+                raise ValueError("A imagem processada excede o limite de 25 MB.")
+            self.db.add_attachment(self.current_id, filename, mime, data)
+            self.load_note_content(self.db.get_node(self.current_id))
+        except Exception as e:
+            messagebox.showerror(APP_NAME, f"Não foi possível inserir a imagem:\n{e}")
+
+    def export_txt(self):
+        sid = self.selected_id()
+        if not sid:
+            return
+        n = self.db.get_node(sid)
+        if not n or n["kind"] != "note":
+            messagebox.showinfo(APP_NAME, "Selecione uma nota para exportar.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".txt", initialfile=f"{n['title']}.txt",
+            filetypes=[("Texto", "*.txt")]
+        )
+        if path:
+            content = self.serialize_editor() if sid == self.current_id else n["content"]
+            Path(path).write_text(content, encoding="utf-8")
+            self.message_var.set(f"Exportado: {path}")
+
+
+
+
+
+
+
+    def find_in_document(self, event=None):
+        if not self.current_id:
+            return "break"
+        term = simpledialog.askstring("Pesquisar na nota", "Texto a procurar:", parent=self)
+        if not term:
+            return "break"
+        self.text.tag_remove("find", "1.0", END)
+        start = "1.0"
+        count = 0
+        while True:
+            pos = self.text.search(term, start, stopindex=END, nocase=True)
+            if not pos:
+                break
+            end = f"{pos}+{len(term)}c"
+            self.text.tag_add("find", pos, end)
+            start = end
+            count += 1
+        self.text.tag_config("find", background="#ffe58a")
+        self.message_var.set(f"{count} ocorrência(s) encontrada(s)")
+        return "break"
+
+    def show_pair(self):
+        PairWindow(self, self.db)
+
+    def close_pair_windows(self):
+        """Fecha eventuais janelas de emparelhamento após sincronizar."""
+        for window in self.winfo_children():
+            if isinstance(window, PairWindow):
+                try:
+                    if window.winfo_exists():
+                        window.destroy()
+                except TclError:
+                    pass
+
+    def context_menu(self, event):
+        iid = self.tree.identify_row(event.y)
+        if iid:
+            self.tree.selection_set(iid)
+        menu = Menu(self, tearoff=0)
+        menu.add_command(label="Novo tópico", command=self.new_topic)
+        menu.add_command(label="Novo subtópico", command=self.new_subtopic)
+        menu.add_command(label="Nova nota", command=self.new_note)
+        menu.add_separator()
+        menu.add_command(label="Renomear", command=self.rename_selected)
+        menu.add_command(label="Eliminar", command=self.delete_selected)
+        menu.tk_popup(event.x_root, event.y_root)
+
+    # Navegação unificada: a lista principal é a única representação da hierarquia.
+    def navigation_path(self, node_id):
+        names = []
+        seen = set()
+        current = self.db.get_node(node_id) if node_id else None
+        while current and current["id"] not in seen:
+            seen.add(current["id"])
+            names.append(current["title"])
+            current = self.db.get_node(current.get("parent_id"))
+        return "Tópicos" + (" › " + " › ".join(reversed(names)) if names else "")
+
+    def open_root(self, save_previous=True):
+        if save_previous:
+            self.save_current()
+        self.current_id = None
+        self.path_var.set("Tópicos")
+        self.title_var.set("Tópicos")
+        self.title_entry.configure(state=DISABLED)
+        self.show_container_contents(None)
+
+    def open_node(self, node_id, save_previous=True):
+        node = self.db.get_node(node_id)
+        if not node or node.get("deleted"):
+            self.open_root(save_previous=save_previous)
+            return
+        if save_previous and self.current_id != node_id:
+            self.save_current()
+        self.current_id = node_id
+        self.path_var.set(self.navigation_path(node_id))
+        self.title_var.set(node["title"])
+        self.title_entry.configure(state=NORMAL)
+        self.update_up_button(node)
+        if node["kind"] == "note":
+            self.show_note_editor(node)
+        else:
+            self.show_container_contents(node_id)
+
+    def selected_id(self):
+        if self.editor_frame.winfo_ismapped():
+            return self.current_id
+        selection = self.child_list.selection()
+        if selection and selection[0] != UP_ITEM_ID:
+            return selection[0]
+        return self.current_id
+
+    def selected_parent_for_new(self):
+        if not self.current_id:
+            return None
+        node = self.db.get_node(self.current_id)
+        if not node:
+            return None
+        return node["id"] if node["kind"] == "topic" else node.get("parent_id")
+
+    def new_topic(self):
+        self.create_node_inline("topic", None, "Novo tópico")
+
+    def new_subtopic(self):
+        parent_id = self.selected_parent_for_new()
+        if not parent_id:
+            self.message_var.set("Abra um tópico para criar um subtópico.")
+            return
+        self.create_node_inline("topic", parent_id, "Novo subtópico")
+
+    def new_note(self):
+        self.create_node_inline("note", self.selected_parent_for_new(), "Nova nota")
+
+    def create_node_inline(self, kind, parent_id, default_title):
+        label = "Nome da nota:" if kind == "note" else "Nome do tópico:"
+        name = simpledialog.askstring(default_title, label, initialvalue=default_title, parent=self)
+        if not name or not name.strip():
+            return
+        node_id = self.db.create_node(parent_id, kind, name.strip())
+        self.open_node(node_id)
+
+    def save_current(self):
+        if not self.current_id:
+            return
+        node = self.db.get_node(self.current_id)
+        if not node or node.get("deleted"):
+            return
+        title = self.title_var.get().strip() or "Sem título"
+        if node["kind"] == "note":
+            content = self.serialize_editor()
+            if title == node["title"] and content == node.get("content", ""):
+                self.text.edit_modified(False)
+                return
+            self.db.update_node(self.current_id, title=title, content=content)
+            self.text.edit_modified(False)
+        else:
+            if title == node["title"]:
+                return
+            self.db.update_node(self.current_id, title=title)
+        self.path_var.set(self.navigation_path(self.current_id))
+        self.message_var.set("Guardado automaticamente")
+
+    def show_container_contents(self, node_id):
+        self.editor_frame.pack_forget()
+        self.child_panel.pack(fill=BOTH, expand=True)
+        self.child_list.delete(*self.child_list.get_children())
+        if node_id is not None:
+            self.child_list.insert("", END, iid=UP_ITEM_ID, text="...", tags=("up",))
+        for child in self.db.child_nodes(node_id):
+            prefix = "📁  " if child["kind"] == "topic" else "📝  "
+            self.child_list.insert("", END, iid=child["id"], text=prefix + child["title"])
+
+    def on_child_click(self, event):
+        item_id = self.child_list.identify_row(event.y)
+        if not item_id:
+            return
+        if item_id == UP_ITEM_ID:
+            self.go_up_one_level()
+        else:
+            self.open_node(item_id)
+        return "break"
+
+    def open_child_from_main(self, event=None):
+        selection = self.child_list.selection()
+        item_id = selection[0] if selection else None
+        if item_id == UP_ITEM_ID:
+            self.go_up_one_level()
+        elif item_id:
+            self.open_node(item_id)
+        return "break"
+
+    def go_up_one_level(self):
+        if not self.current_id:
+            return
+        node = self.db.get_node(self.current_id)
+        parent_id = node.get("parent_id") if node else None
+        if parent_id:
+            self.open_node(parent_id)
+        else:
+            self.open_root()
+
+    def update_up_button(self, node=None):
+        enabled = bool(self.current_id)
+        if enabled:
+            self.note_up_button.configure(state=NORMAL)
+            self.note_up_button.grid()
+        else:
+            self.note_up_button.configure(state=DISABLED)
+            self.note_up_button.grid_remove()
+
+    def rename_selected(self, event=None):
+        node_id = getattr(self, "context_node_id", None) or self.selected_id()
+        node = self.db.get_node(node_id) if node_id else None
+        if not node:
+            return "break"
+        name = simpledialog.askstring(
+            "Renomear", "Novo nome:", initialvalue=node["title"], parent=self
+        )
+        if name and name.strip():
+            self.db.update_node(node_id, title=name.strip())
+            if node_id == self.current_id:
+                self.title_var.set(name.strip())
+                self.path_var.set(self.navigation_path(node_id))
+            if self.current_id and self.db.get_node(self.current_id).get("kind") == "topic":
+                self.show_container_contents(self.current_id)
+            elif not self.current_id:
+                self.show_container_contents(None)
+        self.context_node_id = None
+        return "break"
+
+    def delete_selected(self):
+        node_id = getattr(self, "context_node_id", None) or self.selected_id()
+        node = self.db.get_node(node_id) if node_id else None
+        if not node:
+            return
+        if messagebox.askyesno(
+            "Eliminar", f"Eliminar «{node['title']}» e todo o seu conteúdo?", parent=self
+        ):
+            self.db.mark_deleted(node_id)
+            if node_id == self.current_id:
+                parent_id = node.get("parent_id")
+                self.open_node(parent_id) if parent_id else self.open_root()
+            else:
+                self.show_container_contents(self.current_id)
+        self.context_node_id = None
+
+    def child_context_menu(self, event):
+        item_id = self.child_list.identify_row(event.y)
+        if not item_id or item_id == UP_ITEM_ID:
+            return "break"
+        self.child_list.selection_set(item_id)
+        self.context_node_id = item_id
+        node = self.db.get_node(item_id)
+        menu = Menu(self, tearoff=0)
+        menu.add_command(label="Novo tópico principal", command=self.new_topic)
+        if node and node["kind"] == "topic":
+            menu.add_command(
+                label="Novo subtópico",
+                command=lambda nid=item_id: self.create_node_inline(
+                    "topic", nid, "Novo subtópico"
+                )
+            )
+            menu.add_command(
+                label="Nova nota",
+                command=lambda nid=item_id: self.create_node_inline("note", nid, "Nova nota")
+            )
+        menu.add_separator()
+        menu.add_command(label="Renomear", command=self.rename_selected)
+        menu.add_command(label="Eliminar", command=self.delete_selected)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def on_global_search_changed(self, *_):
+        self.global_search_results = []
+        self.global_search_index = -1
+        self.active_search_term = ""
+        self.clear_search_highlight()
+
+    def start_global_search(self):
+        term = self.search_var.get().strip()
+        if not term:
+            return False
+        self.active_search_term = term
+        lower = term.lower()
+        results = []
+        for node in self.db.all_nodes():
+            if node.get("kind") != "note":
+                continue
+            text = node.get("content", "").lower()
+            start = occurrence = 0
+            while True:
+                position = text.find(lower, start)
+                if position < 0:
+                    break
+                results.append((node["id"], occurrence))
+                occurrence += 1
+                start = position + max(1, len(lower))
+        self.global_search_results = results
+        self.global_search_index = -1
+        if not results:
+            self.message_var.set("Nenhuma ocorrência encontrada no conteúdo das notas.")
+            return False
+        return True
+
+    def global_search_next(self, event=None):
+        term = self.search_var.get().strip()
+        if term != self.active_search_term or not self.global_search_results:
+            if not self.start_global_search():
+                return "break"
+        self.global_search_index = (
+            self.global_search_index + 1
+        ) % len(self.global_search_results)
+        node_id, occurrence = self.global_search_results[self.global_search_index]
+        self.open_node(node_id)
+        self.highlight_global_occurrence(term, occurrence)
+        self.message_var.set(
+            f"Resultado {self.global_search_index + 1} de {len(self.global_search_results)}"
+        )
+        return "break"
+
+    def global_search_previous(self, event=None):
+        term = self.search_var.get().strip()
+        if term != self.active_search_term or not self.global_search_results:
+            if not self.start_global_search():
+                return "break"
+            self.global_search_index = 0
+        self.global_search_index = (
+            self.global_search_index - 1
+        ) % len(self.global_search_results)
+        node_id, occurrence = self.global_search_results[self.global_search_index]
+        self.open_node(node_id)
+        self.highlight_global_occurrence(term, occurrence)
+        self.message_var.set(
+            f"Resultado {self.global_search_index + 1} de {len(self.global_search_results)}"
+        )
+        return "break"
+
+    def refresh_after_sync(self):
+        # Este método só é chamado quando o servidor conclui uma sincronização
+        # autenticada sem erros. Nessa altura, o QR já não é necessário.
+        self.close_pair_windows()
+        if self.save_after_id:
+            try:
+                self.after_cancel(self.save_after_id)
+            except Exception:
+                pass
+            self.save_after_id = None
+        self.load_tree(select_id=self.current_id)
+
+    def export_txt(self):
+        node = self.db.get_node(self.current_id) if self.current_id else None
+        if not node or node["kind"] != "note":
+            messagebox.showinfo(APP_NAME, "Abra uma nota para exportar.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".txt", initialfile=f"{node['title']}.txt",
+            filetypes=[("Texto", "*.txt")]
+        )
+        if path:
+            self.save_current()
+            Path(path).write_text(self.serialize_editor(), encoding="utf-8")
+            self.message_var.set(f"Exportado: {path}")
+
+    def on_close(self):
+        if self.sync_poll_after_id:
+            try:
+                self.after_cancel(self.sync_poll_after_id)
+            except Exception:
+                pass
+            self.sync_poll_after_id = None
+        SyncHandler.on_change = None
+        try:
+            self.save_current()
+        except Exception:
+            pass
+        try:
+            if self.server:
+                self.server.shutdown()
+                self.server.server_close()
+        except Exception:
+            pass
+        try:
+            self.db.close()
+        except Exception:
+            pass
+        self.destroy()
+
+
+if __name__ == "__main__":
+    App().mainloop()
