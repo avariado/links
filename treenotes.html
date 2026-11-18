@@ -261,7 +261,7 @@
         const s=getSelection(); s.removeAllRanges(); s.addRange(r);
       }
       function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ const t=active.innerText.replace(/\n+$/,''); if(n.text!==t){ n.text=t; n.updatedAt=new Date().toISOString(); } } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); flushRemote(); }
-      function remove(id){ const n=notes.find(x=>x.id===id); if(n&&confirm(`Eliminar esta nota?\n\n${n.text.slice(0,100)}`)){ notes=notes.filter(x=>x.id!==id); deleted.add(id); saveDeleted(); persist(); render(); toast('Nota eliminada'); } }
+      function remove(id){ const n=notes.find(x=>x.id===id); const info=n?lineInfo(n.text):{first:'',more:false}, first=info.first.trim(); if(n&&confirm(`Eliminar esta nota?\n\n${(first.length>100?first.slice(0,100):first)+((first.length>100||info.more)?'…':'')}`)){ notes=notes.filter(x=>x.id!==id); deleted.add(id); saveDeleted(); persist(); render(); toast('Nota eliminada'); } }
       function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
       function openMenu(x,y,target){ menuTarget=target; menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
       function closeMenu(){ menu.classList.remove('open'); menuTarget=null; }
