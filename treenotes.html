@@ -137,6 +137,18 @@
       const deleted=new Set(loadDeleted());
       function saveDeleted(){ localStorage.setItem(DKEY,JSON.stringify([...deleted])); }
       let dirty=false, syncing=false, resync=false;
+      // Alterações vindas do servidor nunca reconstroem a lista enquanto o utilizador está a interagir
+      // (nota aberta, a arrastar, ou com o dedo/rato premido): ficam pendentes e aplicam-se depois.
+      let pressing=false, pendingRemote=false, staleView=false, remoteEventTimer=null, sentSig=new Map();
+      const busy=()=>!!(active||drag||pressing);
+      const sig=(n,i)=>i+'\u0001'+n.text;
+      function flushRemote(){
+        setTimeout(()=>{
+          if(busy())return;
+          if(staleView){ staleView=false; render(); }
+          if(pendingRemote){ pendingRemote=false; loadRemote(); }
+        },300);
+      }
       let notes=load(), active=null, menuTarget=null, drag=null, pressTimer=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
       let pointerType='mouse', startX=0, startY=0, lastY=0, dropRef=null, dropLast=null, scrollRaf=0;
       // Símbolo de arrastar (seis pontos). Toque/clique longo aqui ativa a reordenação.
@@ -163,12 +175,14 @@
             if(gone.has(row.id))continue;
             const mine=local.get(row.id);
             if(!mine){ notes.push({id:row.id,text:row.text,createdAt:row.created_at,updatedAt:row.updated_at}); merged=true; }
-            else if(new Date(row.updated_at)>new Date(mine.updatedAt)&&active?.dataset.id!==mine.id){ mine.text=row.text; mine.updatedAt=row.updated_at; merged=true; }
+            else if(new Date(row.updated_at)>new Date(mine.updatedAt)&&active?.dataset.id!==mine.id){ if(mine.text!==row.text){ mine.text=row.text; merged=true; } mine.updatedAt=row.updated_at; }
           }
           localStorage.setItem(KEY,JSON.stringify(notes));
-          if(merged&&!active&&!drag)render();
-          const rows=notes.map((n,i)=>({id:n.id,user_id:session.user.id,text:n.text,position:i,created_at:n.createdAt,updated_at:n.updatedAt}));
+          if(merged){ if(busy())staleView=true; else render(); }
+          // Envia só as notas que mudaram (texto ou posição), em vez de todas de cada vez.
+          const rows=[]; notes.forEach((n,i)=>{ if(sentSig.get(n.id)!==sig(n,i)) rows.push({id:n.id,user_id:session.user.id,text:n.text,position:i,created_at:n.createdAt,updated_at:n.updatedAt}); });
           if(rows.length){ const {error}=await client.from('notes').upsert(rows,{onConflict:'id'}); if(error)throw error; }
+          sentSig=new Map(notes.map((n,i)=>[n.id,sig(n,i)]));
           if(gone.size){ const {error}=await client.from('notes').delete().in('id',[...gone]); if(error)throw error; gone.forEach(id=>deleted.delete(id)); saveDeleted(); }
           dirty=false;
           status.textContent='Sincronizado · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
@@ -183,14 +197,21 @@
         if(offerMigration&&data.length===0&&notes.length&&confirm(`Encontrámos ${notes.length} ${notes.length===1?'nota':'notas'} neste navegador. Enviar para a sua conta?`)){
           await syncRemote(); toast('Notas migradas para a sua conta'); return;
         }
-        applyingRemote=true;
-        notes=(data||[]).filter(row=>!deleted.has(row.id)).map(row=>({id:row.id,text:row.text,createdAt:row.created_at,updatedAt:row.updated_at}));
+        // Se o utilizador está a interagir, não mexer na lista: fica pendente.
+        if(busy()){ pendingRemote=true; return; }
+        const next=(data||[]).filter(row=>!deleted.has(row.id)).map(row=>({id:row.id,text:row.text,createdAt:row.created_at,updatedAt:row.updated_at}));
+        sentSig=new Map(next.map((n,i)=>[n.id,sig(n,i)]));
+        // Nada mudou (por exemplo, o eco de uma gravação feita aqui): não reconstruir a lista.
+        if(next.length===notes.length&&next.every((n,i)=>n.id===notes[i].id&&n.text===notes[i].text)){ status.textContent='Sincronizado'; return; }
+        applyingRemote=true; notes=next;
         localStorage.setItem(KEY,JSON.stringify(notes)); applyingRemote=false; render(); status.textContent='Sincronizado';
       }
       function subscribe(){
         if(channel)client.removeChannel(channel);
         channel=client.channel('notes-'+session.user.id).on('postgres_changes',{event:'*',schema:'public',table:'notes',filter:`user_id=eq.${session.user.id}`},()=>{
-          if(!active&&!drag)loadRemote();
+          // Um só aviso por rajada: espera que os avisos parem e só então lê o servidor.
+          clearTimeout(remoteEventTimer);
+          remoteEventTimer=setTimeout(()=>{ if(busy())pendingRemote=true; else loadRemote(); },500);
         }).subscribe();
       }
       function esc(s=''){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -233,7 +254,7 @@
         const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
         const s=getSelection(); s.removeAllRanges(); s.addRange(r);
       }
-      function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ const t=active.innerText.replace(/\n+$/,''); if(n.text!==t){ n.text=t; n.updatedAt=new Date().toISOString(); } } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); }
+      function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ const t=active.innerText.replace(/\n+$/,''); if(n.text!==t){ n.text=t; n.updatedAt=new Date().toISOString(); } } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); flushRemote(); }
       function remove(id){ const n=notes.find(x=>x.id===id); if(n&&confirm(`Eliminar esta nota?\n\n${n.text.slice(0,100)}`)){ notes=notes.filter(x=>x.id!==id); deleted.add(id); saveDeleted(); persist(); render(); toast('Nota eliminada'); } }
       function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
       function openMenu(x,y,target){ menuTarget=target; menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
@@ -264,7 +285,9 @@
       menu.addEventListener('pointerdown',e=>e.preventDefault());
       menu.addEventListener('click',async e=>{ const cmd=e.target.closest('button')?.dataset.command,target=menuTarget; if(!cmd||!target)return; target.focus(); if(cmd==='paste'){ try { document.execCommand('insertText',false,await navigator.clipboard.readText()); } catch { toast('Use Ctrl+V para colar'); } } else document.execCommand(cmd); closeMenu(); });
       // Pressão longa: no símbolo de arrastar reordena; no resto da nota elimina.
+      let pressGuard=null;
       notesEl.addEventListener('pointerdown',e=>{
+        pressing=true; clearTimeout(pressGuard); pressGuard=setTimeout(()=>{ pressing=false; },4000); // segurança: nunca fica preso
         pointerType=e.pointerType||'mouse';
         longDone=false; ignoreClick=false; clearTimeout(pressTimer); clearTimeout(delTimer);
         const el=e.target.closest('.note');
@@ -325,6 +348,8 @@
         render();
       }
       document.addEventListener('pointerup',endDrag); document.addEventListener('pointercancel',endDrag);
+      function releasePress(){ pressing=false; clearTimeout(pressGuard); flushRemote(); }
+      document.addEventListener('pointerup',releasePress); document.addEventListener('pointercancel',releasePress);
       function nextResult(back=false){
         const marks=[...notesEl.querySelectorAll('mark')]; if(!marks.length)return;
         marks.forEach(m=>m.classList.remove('current'));
@@ -337,7 +362,7 @@
         $('#resultCount').textContent=q?(total?`0 / ${total}`:'0 / 0'):'';
         $('#prevResult').disabled=$('#nextResult').disabled=!total;
       }
-      $('#addBtn').onclick=add; $('#search').oninput=()=>render();
+      $('#addBtn').onclick=add; $('#search').oninput=()=>{ finish(); render(); };
       $('#prevResult').onclick=()=>nextResult(true); $('#nextResult').onclick=()=>nextResult(false);
       $('#exportBtn').onclick=()=>{ finish(); const blob=new Blob([JSON.stringify(notes,null,2)],{type:'application/json'}),a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='treenotes.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('treenotes.json exportado'); };
       $('#importBtn').onclick=()=>$('#fileInput').click();
@@ -354,7 +379,7 @@
           return;
         }
         const changed=currentUserId!==session.user.id; currentUserId=session.user.id;
-        if(changed){ dirty=false; clearTimeout(remoteTimer); }
+        if(changed){ dirty=false; sentSig=new Map(); clearTimeout(remoteTimer); }
         $('#authCard').hidden=true; $('#app').hidden=false; $('#accountEmail').textContent=session.user.email||'';
         await loadRemote({offerMigration:offerMigration&&changed}); subscribe();
       }
