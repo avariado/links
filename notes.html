@@ -17,7 +17,6 @@
     .app { width:min(760px,calc(100% - 32px)); margin:0 auto; padding:52px 0 100px; }
     header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:26px; }
     h1 { margin:0; font-size:30px; letter-spacing:-.035em; line-height:1.15; }
-    .subtitle { margin:5px 0 0; color:var(--muted); font-size:13px; }
     .toolbar { display:flex; align-items:center; gap:6px; }
     .icon-btn,.add-btn,.menu button { border:0; background:transparent; cursor:pointer; border-radius:7px; }
     .icon-btn { width:34px; height:34px; display:grid; place-items:center; color:var(--muted); }
@@ -70,7 +69,7 @@
     .text-btn { border:0; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; padding:6px 8px; }
     .text-btn:hover { background:var(--hover); color:var(--text); }
     [hidden] { display:none!important; }
-    @media (max-width:600px) { .app{width:min(100% - 24px,760px);padding-top:28px} header{align-items:flex-start}.subtitle{max-width:230px}.shortcut{display:none} }
+    @media (max-width:600px) { .app{width:min(100% - 24px,760px);padding-top:28px} header{align-items:flex-start}.shortcut{display:none} }
   </style>
 </head>
 <body>
@@ -90,7 +89,7 @@
   </section>
   <main class="app" id="app" hidden>
     <header>
-      <div><h1>Notas</h1><p class="subtitle">Um espaço simples para aquilo que não quer esquecer.</p></div>
+      <h1>Notas</h1>
       <div class="toolbar">
         <button class="icon-btn" id="importBtn" title="Importar notes.json" aria-label="Importar notes.json">↑</button>
         <button class="icon-btn" id="exportBtn" title="Exportar notes.json" aria-label="Exportar notes.json">↓</button>
@@ -125,7 +124,7 @@
       const SUPABASE_URL='https://whhbsxugpzxlqanbhnwl.supabase.co/rest/v1/';
       const SUPABASE_PUBLISHABLE_KEY='sb_publishable_9ueIri6x_9BJpBh9yXchZw_kkfpk8kw';
       const $=s=>document.querySelector(s), notesEl=$('#notes'), status=$('#status'), menu=$('#editMenu');
-      let notes=load(), active=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
+      let notes=load(), active=null, menuTarget=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
       let client=null, session=null, channel=null, applyingRemote=false, currentUserId=null, authMode='login';
       function load(){ try { const data=JSON.parse(localStorage.getItem(KEY)); return Array.isArray(data)?data:[]; } catch { return []; } }
       function persist(){
@@ -200,14 +199,16 @@
       function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ n.text=active.innerText.replace(/\n+$/,''); n.updatedAt=new Date().toISOString(); } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); }
       function remove(id){ const n=notes.find(x=>x.id===id); if(n&&confirm(`Eliminar esta nota?\n\n${n.text.slice(0,100)}`)){ notes=notes.filter(x=>x.id!==id); persist(); render(); toast('Nota eliminada'); } }
       function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
-      function openMenu(x,y){ menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
-      function closeMenu(){ menu.classList.remove('open'); }
+      function openMenu(x,y,target){ menuTarget=target; menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
+      function closeMenu(){ menu.classList.remove('open'); menuTarget=null; }
       notesEl.addEventListener('click',e=>{ const el=e.target.closest('.note'); if(!el)return; if(e.target.closest('a')) return; edit(el); });
+      notesEl.addEventListener('dblclick',e=>{ const el=e.target.closest('.note'); if(el&&el===active){ e.preventDefault(); finish(); } });
       notesEl.addEventListener('input',()=>{ if(active) status.textContent='A guardar…'; });
-      notesEl.addEventListener('contextmenu',e=>{ const el=e.target.closest('.note'); if(!el)return; e.preventDefault(); if(el===active) openMenu(e.clientX,e.clientY); else remove(el.dataset.id); });
+      notesEl.addEventListener('contextmenu',e=>{ const el=e.target.closest('.note'); if(!el)return; e.preventDefault(); if(el===active) openMenu(e.clientX,e.clientY,active); else remove(el.dataset.id); });
+      $('#search').addEventListener('contextmenu',e=>{ e.preventDefault(); openMenu(e.clientX,e.clientY,e.currentTarget); });
       document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.menu')&&!e.target.closest('.note')) finish(); else if(!e.target.closest('.menu')) closeMenu(); });
       menu.addEventListener('pointerdown',e=>e.preventDefault());
-      menu.addEventListener('click',async e=>{ const cmd=e.target.closest('button')?.dataset.command; if(!cmd||!active)return; active.focus(); if(cmd==='paste'){ try { document.execCommand('insertText',false,await navigator.clipboard.readText()); } catch { toast('Use Ctrl+V para colar'); } } else document.execCommand(cmd); closeMenu(); });
+      menu.addEventListener('click',async e=>{ const cmd=e.target.closest('button')?.dataset.command,target=menuTarget; if(!cmd||!target)return; target.focus(); if(cmd==='paste'){ try { document.execCommand('insertText',false,await navigator.clipboard.readText()); } catch { toast('Use Ctrl+V para colar'); } } else document.execCommand(cmd); closeMenu(); });
       notesEl.addEventListener('pointerdown',e=>{ const el=e.target.closest('.note'); if(!el||el===active||e.button!==0)return; pressTimer=setTimeout(()=>startDrag(el,e.pointerId),420); });
       function startDrag(el,pointerId){ drag=el; el.classList.add('dragging'); el.setPointerCapture?.(pointerId); document.body.style.userSelect='none'; }
       notesEl.addEventListener('pointermove',e=>{ if(!drag)return; const els=[...notesEl.querySelectorAll('.note:not(.dragging)')]; dropIndex=els.findIndex(el=>e.clientY<el.getBoundingClientRect().top+el.offsetHeight/2); if(dropIndex<0)dropIndex=els.length; let line=$('.drop-line'); if(!line){ line=document.createElement('div'); line.className='drop-line'; notesEl.appendChild(line); } const ref=els[dropIndex]; line.style.top=(ref?ref.offsetTop:notesEl.scrollHeight)+'px'; });
