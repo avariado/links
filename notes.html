@@ -84,6 +84,7 @@
         <button class="primary-btn" id="loginBtn" type="submit">Entrar</button>
         <button class="secondary-btn" id="signupBtn" type="button">Criar conta</button>
       </div>
+      <button class="text-btn" id="forgotBtn" type="button">Definir ou recuperar palavra-passe</button>
     </form>
     <p class="auth-note" id="authMessage">Na primeira utilização, escolha “Criar conta”.</p>
   </section>
@@ -125,7 +126,7 @@
       const SUPABASE_PUBLISHABLE_KEY='sb_publishable_9ueIri6x_9BJpBh9yXchZw_kkfpk8kw';
       const $=s=>document.querySelector(s), notesEl=$('#notes'), status=$('#status'), menu=$('#editMenu');
       let notes=load(), active=null, drag=null, pressTimer=null, dropIndex=null, saveTimer=null, remoteTimer=null, resultIndex=-1;
-      let client=null, session=null, channel=null, applyingRemote=false, currentUserId=null;
+      let client=null, session=null, channel=null, applyingRemote=false, currentUserId=null, authMode='login';
       function load(){ try { const data=JSON.parse(localStorage.getItem(KEY)); return Array.isArray(data)?data:[]; } catch { return []; } }
       function persist(){
         localStorage.setItem(KEY,JSON.stringify(notes));
@@ -247,6 +248,15 @@
       $('#authForm').addEventListener('submit',async e=>{
         e.preventDefault();
         const button=$('#loginBtn'),email=$('#email').value.trim(),password=$('#password').value;
+        if(authMode==='recovery'){
+          if(password.length<6){ $('#authMessage').textContent='A nova palavra-passe deve ter pelo menos 6 caracteres.'; return; }
+          button.disabled=true; $('#authMessage').textContent='A guardar a nova palavra-passe…';
+          const {error}=await client.auth.updateUser({password}); button.disabled=false;
+          if(error){ $('#authMessage').textContent=`Erro: ${error.message}`; return; }
+          authMode='login'; $('#email').disabled=false; $('#email').hidden=false; $('#signupBtn').hidden=false; $('#forgotBtn').hidden=false; button.textContent='Entrar';
+          $('#authMessage').textContent='Palavra-passe definida. A abrir as notas…'; await showSession((await client.auth.getSession()).data.session);
+          return;
+        }
         button.disabled=$('#signupBtn').disabled=true; $('#authMessage').textContent='A entrar…';
         const {error}=await client.auth.signInWithPassword({email,password});
         button.disabled=$('#signupBtn').disabled=false;
@@ -263,6 +273,15 @@
         if(error)$('#authMessage').textContent=`Erro: ${error.message}`;
         else if(data.session)$('#authMessage').textContent='Conta criada e sessão iniciada.';
         else $('#authMessage').textContent='Conta criada. Confirme o e-mail uma única vez e depois entre com a palavra-passe.';
+      };
+      $('#forgotBtn').onclick=async()=>{
+        const email=$('#email').value.trim();
+        if(!email){ $('#authMessage').textContent='Introduza primeiro o seu e-mail.'; return; }
+        const redirectTo=/^https?:$/.test(location.protocol)?location.origin+location.pathname:undefined;
+        $('#forgotBtn').disabled=true; $('#authMessage').textContent='A enviar instruções…';
+        const {error}=await client.auth.resetPasswordForEmail(email,redirectTo?{redirectTo}:undefined);
+        $('#forgotBtn').disabled=false;
+        $('#authMessage').textContent=error?`Erro: ${error.message}`:'E-mail enviado. Abra a ligação para definir uma nova palavra-passe.';
       };
       $('#logoutBtn').onclick=async()=>{ await syncRemote(); await client.auth.signOut(); };
       async function init(){
@@ -289,6 +308,15 @@
         const {data:{session:initialSession}}=await client.auth.getSession();
         await showSession(initialSession,{offerMigration:true});
         client.auth.onAuthStateChange((event,nextSession)=>{
+          if(event==='PASSWORD_RECOVERY'){
+            setTimeout(()=>{
+              session=nextSession; authMode='recovery'; $('#app').hidden=true; $('#authCard').hidden=false;
+              $('#email').disabled=true; $('#email').hidden=true; $('#signupBtn').hidden=true; $('#forgotBtn').hidden=true;
+              $('#password').value=''; $('#password').placeholder='Nova palavra-passe'; $('#password').autocomplete='new-password';
+              $('#loginBtn').textContent='Guardar palavra-passe'; $('#authMessage').textContent='Escolha agora a sua nova palavra-passe.';
+            },0);
+            return;
+          }
           if(event==='SIGNED_IN'&&nextSession?.user.id===currentUserId)return;
           setTimeout(()=>showSession(nextSession,{offerMigration:event==='SIGNED_IN'}),0);
         });
