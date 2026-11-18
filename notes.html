@@ -57,9 +57,13 @@
     .auth-card { margin:70px auto; width:min(420px,calc(100% - 32px)); padding:28px; border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--shadow); }
     .auth-card h2 { margin:0 0 6px; font-size:22px; letter-spacing:-.025em; }
     .auth-card p { margin:0 0 20px; color:var(--muted); }
-    .auth-form { display:flex; gap:8px; }
+    .auth-form { display:grid; gap:9px; }
     .auth-form input { min-width:0; flex:1; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); padding:10px 12px; outline:none; }
+    .auth-actions { display:flex; gap:8px; }
+    .auth-actions button { flex:1; }
     .primary-btn { border:0; border-radius:8px; background:var(--text); color:var(--bg); padding:10px 14px; cursor:pointer; white-space:nowrap; }
+    .secondary-btn { border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--text); padding:10px 14px; cursor:pointer; white-space:nowrap; }
+    .secondary-btn:hover { background:var(--hover); }
     .primary-btn:disabled { opacity:.55; cursor:wait; }
     .auth-note { margin-top:14px!important; margin-bottom:0!important; font-size:12px; }
     .account { display:flex; justify-content:flex-end; align-items:center; gap:7px; margin:-16px 0 12px; color:var(--muted); font-size:12px; }
@@ -72,12 +76,16 @@
 <body>
   <section class="auth-card" id="authCard" hidden>
     <h2>As suas notas, em todo o lado</h2>
-    <p>Introduza o seu e-mail. Enviaremos uma ligação segura para iniciar sessão.</p>
+    <p>Entre com o seu e-mail e palavra-passe.</p>
     <form class="auth-form" id="authForm">
       <input id="email" type="email" autocomplete="email" placeholder="nome@exemplo.pt" required aria-label="Endereço de e-mail">
-      <button class="primary-btn" id="loginBtn" type="submit">Continuar</button>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Palavra-passe" minlength="6" required aria-label="Palavra-passe">
+      <div class="auth-actions">
+        <button class="primary-btn" id="loginBtn" type="submit">Entrar</button>
+        <button class="secondary-btn" id="signupBtn" type="button">Criar conta</button>
+      </div>
     </form>
-    <p class="auth-note" id="authMessage">Não precisa de criar nem memorizar uma palavra-passe.</p>
+    <p class="auth-note" id="authMessage">Na primeira utilização, escolha “Criar conta”.</p>
   </section>
   <main class="app" id="app" hidden>
     <header>
@@ -237,14 +245,25 @@
         await loadRemote({offerMigration:offerMigration&&changed}); subscribe();
       }
       $('#authForm').addEventListener('submit',async e=>{
-        e.preventDefault(); const button=$('#loginBtn'),email=$('#email').value.trim();
-        button.disabled=true; $('#authMessage').textContent='A enviar a ligação…';
-        const redirectTo=/^https?:$/.test(location.protocol)?location.origin+location.pathname:null;
-        const credentials=redirectTo?{email,options:{emailRedirectTo:redirectTo}}:{email};
-        const {error}=await client.auth.signInWithOtp(credentials);
-        button.disabled=false;
-        $('#authMessage').textContent=error?`Erro: ${error.message}`:'Ligação enviada. Consulte o seu e-mail.';
+        e.preventDefault();
+        const button=$('#loginBtn'),email=$('#email').value.trim(),password=$('#password').value;
+        button.disabled=$('#signupBtn').disabled=true; $('#authMessage').textContent='A entrar…';
+        const {error}=await client.auth.signInWithPassword({email,password});
+        button.disabled=$('#signupBtn').disabled=false;
+        $('#authMessage').textContent=error?`Erro: ${error.message}`:'Sessão iniciada.';
       });
+      $('#signupBtn').onclick=async()=>{
+        const email=$('#email').value.trim(),password=$('#password').value;
+        if(!email||password.length<6){ $('#authMessage').textContent='Introduza um e-mail e uma palavra-passe com pelo menos 6 caracteres.'; return; }
+        $('#loginBtn').disabled=$('#signupBtn').disabled=true; $('#authMessage').textContent='A criar conta…';
+        const redirectTo=/^https?:$/.test(location.protocol)?location.origin+location.pathname:undefined;
+        const options=redirectTo?{emailRedirectTo:redirectTo}:undefined;
+        const {data,error}=await client.auth.signUp({email,password,options});
+        $('#loginBtn').disabled=$('#signupBtn').disabled=false;
+        if(error)$('#authMessage').textContent=`Erro: ${error.message}`;
+        else if(data.session)$('#authMessage').textContent='Conta criada e sessão iniciada.';
+        else $('#authMessage').textContent='Conta criada. Confirme o e-mail uma única vez e depois entre com a palavra-passe.';
+      };
       $('#logoutBtn').onclick=async()=>{ await syncRemote(); await client.auth.signOut(); };
       async function init(){
         const configured=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('COLE_AQUI')&&!SUPABASE_PUBLISHABLE_KEY.includes('COLE_AQUI');
