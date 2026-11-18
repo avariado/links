@@ -41,6 +41,7 @@
     .note:focus { background:var(--paper); box-shadow:inset 3px 0 var(--accent); }
     .note a { color:var(--accent); text-decoration:none; }
     .note a:hover { text-decoration:underline; }
+    .note[contenteditable="true"] a { cursor:pointer; }
     mark { background:#ffe66a; color:#242424; border-radius:3px; padding:0 1px; }
     mark.current { background:#ffb224; outline:2px solid color-mix(in srgb,#ffb224 38%,transparent); }
     .more { color:var(--muted); margin-left:6px; }
@@ -247,6 +248,12 @@
         if(focusId) requestAnimationFrame(()=>edit(notesEl.querySelector(`[data-id="${focusId}"]`)));
       }
       function add(){ finish(); /* fecha e guarda primeiro a nota em edição, enquanto ainda está no ecrã */ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
+      // Conteúdo da nota aberta: todo o texto (com as quebras de linha) e os endereços como ligações clicáveis.
+      function editHtml(text){
+        const urlRe=/https?:\/\/[^\s]+/gi; let out='',last=0,m;
+        while((m=urlRe.exec(text))){ out+=esc(text.slice(last,m.index))+`<a href="${esc(m[0])}" target="_blank" rel="noopener noreferrer">${esc(m[0])}</a>`; last=m.index+m[0].length; }
+        return out+esc(text.slice(last));
+      }
       function edit(el){
         if(!el||el===active)return;
         const id=el.dataset.id;
@@ -256,7 +263,7 @@
         if(!el)return;
         active=el;
         const n=notes.find(x=>x.id===id);
-        el.contentEditable='true'; el.textContent=n.text; el.focus();
+        el.contentEditable='true'; el.innerHTML=editHtml(n.text); el.focus();
         const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
         const s=getSelection(); s.removeAllRanges(); s.addRange(r);
       }
@@ -267,7 +274,15 @@
       function closeMenu(){ menu.classList.remove('open'); menuTarget=null; }
       notesEl.addEventListener('click',e=>{
         if(ignoreClick||e.target.closest('.grip'))return;
-        const el=e.target.closest('.note'); if(!el)return; if(e.target.closest('a')) return; edit(el);
+        const el=e.target.closest('.note'); if(!el)return;
+        const a=e.target.closest('a');
+        if(a&&el===active){
+          // Nota aberta: o navegador não segue ligações em texto editável, por isso abre-se aqui.
+          // Se há texto selecionado (o utilizador estava a selecionar), não abre.
+          e.preventDefault(); if(getSelection().isCollapsed) window.open(a.href,'_blank','noopener,noreferrer'); return;
+        }
+        if(a) return; // nota fechada: a ligação abre pelo comportamento normal
+        edit(el);
       });
       notesEl.addEventListener('dblclick',e=>{ const el=e.target.closest('.note'); if(el&&el===active){ e.preventDefault(); finish(); } });
       notesEl.addEventListener('input',()=>{ if(active) status.textContent='A guardar…'; });
