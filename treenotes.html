@@ -232,14 +232,20 @@
         const lines=String(text).split(/\r?\n/), i=lines.findIndex(l=>l.trim());
         return i<0?{first:'',more:false}:{first:lines[i],more:lines.slice(i+1).some(l=>l.trim())};
       }
-      function linked(text,q){
-        const urlRe=/https?:\/\/[^\s]+/gi; let out='',last=0,match;
-        while((match=urlRe.exec(text))){ out+=highlighted(text.slice(last,match.index),q); const url=match[0]; out+=`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${highlighted(url,q)}</a>`; last=match.index+url.length; }
-        return (out+highlighted(text.slice(last),q)).replace(/\n/g,'<br>');
+      // Ligações no texto da nota: "[título](endereço)" (ligação com título, p. ex. colada de uma página)
+      // ou um endereço simples http(s)://… Tudo é guardado como texto, por isso sincroniza e exporta sem alterações.
+      const LINK_SRC='\\[([^\\]\\n]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)|https?:\\/\\/[^\\s]+';
+      const mdLink=(title,href)=>'['+title.replace(/\s+/g,' ').trim().replace(/\[/g,'(').replace(/\]/g,')')+']('+href.replace(/\(/g,'%28').replace(/\)/g,'%29')+')';
+      const plain=t=>String(t).replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,'$1'); // texto visível, sem os endereços escondidos
+      function linkHtml(text,fmt){
+        const re=new RegExp(LINK_SRC,'gi'); let out='',last=0,m;
+        while((m=re.exec(text))){ const title=m[2]?m[1]:m[0], url=m[2]||m[0]; out+=fmt(text.slice(last,m.index))+`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${fmt(title)}</a>`; last=m.index+m[0].length; }
+        return out+fmt(text.slice(last));
       }
+      function linked(text,q){ return linkHtml(text,s=>highlighted(s,q)).replace(/\n/g,'<br>'); }
       function render(focusId){
         const q=$('#search').value.trim().toLocaleLowerCase('pt-PT'); notesEl.innerHTML='';
-        const shown=notes.filter(n=>!q||n.text.toLocaleLowerCase('pt-PT').includes(q));
+        const shown=notes.filter(n=>!q||plain(n.text).toLocaleLowerCase('pt-PT').includes(q));
         if(!shown.length){ notesEl.innerHTML=`<div class="empty"><strong>${q?'Nenhuma nota encontrada':'Ainda não há notas'}</strong>${q?'Experimente outra pesquisa.':'Clique abaixo e escreva a primeira.'}</div>`; updateSearchControls(0,q); return; }
         shown.forEach(n=>{ const el=document.createElement('div'); el.className='note'; el.dataset.id=n.id; el.tabIndex=0; const info=lineInfo(n.text), body=q?n.text:info.first; /* com pesquisa ativa mostra-se tudo, para ver as ocorrências */ el.innerHTML=(linked(body,q)||'<span style="color:var(--muted)">Nota vazia</span>')+((!q&&info.more)?'<span class="more" title="Esta nota tem mais linhas">…</span>':'')+GRIP; notesEl.appendChild(el); });
         const total=notesEl.querySelectorAll('mark').length; resultIndex=-1;
@@ -249,11 +255,37 @@
       }
       function add(){ finish(); /* fecha e guarda primeiro a nota em edição, enquanto ainda está no ecrã */ const n={id:crypto.randomUUID(),text:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; notes.push(n); persist(); $('#search').value=''; render(n.id); }
       // Conteúdo da nota aberta: todo o texto (com as quebras de linha) e os endereços como ligações clicáveis.
-      function editHtml(text){
-        const urlRe=/https?:\/\/[^\s]+/gi; let out='',last=0,m;
-        while((m=urlRe.exec(text))){ out+=esc(text.slice(last,m.index))+`<a href="${esc(m[0])}" target="_blank" rel="noopener noreferrer">${esc(m[0])}</a>`; last=m.index+m[0].length; }
-        return out+esc(text.slice(last));
+      function editHtml(text){ return linkHtml(text,esc); }
+      // Texto da nota aberta, para guardar: as ligações com título voltam a "[título](endereço)";
+      // um endereço simples (cujo texto é o próprio endereço) fica como texto simples.
+      function noteText(el){
+        el.querySelectorAll('a').forEach(a=>{
+          const href=a.getAttribute('href')||'', txt=a.textContent.replace(/\s+/g,' ').trim();
+          a.replaceWith(document.createTextNode(!txt||/^https?:\/\//i.test(txt)?(txt||href):mdLink(txt,href)));
+        });
+        return el.innerText.replace(/\n+$/,'');
       }
+      // Colar do navegador: se o conteúdo tem ligações (título clicável), converte-as em "[título](endereço)".
+      function clipToText(html){
+        const doc=new DOMParser().parseFromString(html,'text/html'), blocks=/^(P|DIV|LI|UL|OL|H[1-6]|TR|BLOCKQUOTE|PRE|SECTION|ARTICLE|TABLE)$/; let out='';
+        const nl=()=>{ if(out&&!out.endsWith('\n'))out+='\n'; };
+        (function walk(n){
+          if(n.nodeType===3){ out+=n.textContent.replace(/\s+/g,' '); return; }
+          if(n.nodeType!==1)return;
+          const t=n.tagName; if(t==='SCRIPT'||t==='STYLE'||t==='IMG')return;
+          if(t==='BR'){ out+='\n'; return; }
+          const href=n.getAttribute('href')||'';
+          if(t==='A'&&/^https?:\/\//i.test(href)){ const txt=n.textContent.replace(/\s+/g,' ').trim(); out+=(!txt||txt===href||/^https?:\/\//i.test(txt))?(txt||href):mdLink(txt,href); return; }
+          const b=blocks.test(t); if(b)nl(); n.childNodes.forEach(walk); if(b)nl();
+        })(doc.body);
+        return out.replace(/[ \t]*\n[ \t]*/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+      }
+      notesEl.addEventListener('paste',e=>{
+        if(!active||e.target.closest('.note')!==active)return;
+        const html=e.clipboardData?.getData('text/html')||''; if(!/<a\s[^>]*href\s*=\s*["']?https?:/i.test(html))return; // sem ligações: colar normal
+        const txt=clipToText(html); if(!txt)return;
+        e.preventDefault(); document.execCommand('insertHTML',false,editHtml(txt).replace(/\n/g,'<br>'));
+      });
       function edit(el){
         if(!el||el===active)return;
         const id=el.dataset.id;
@@ -267,8 +299,8 @@
         const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
         const s=getSelection(); s.removeAllRanges(); s.addRange(r);
       }
-      function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ const t=active.innerText.replace(/\n+$/,''); if(n.text!==t){ n.text=t; n.updatedAt=new Date().toISOString(); } } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); flushRemote(); }
-      function remove(id){ const n=notes.find(x=>x.id===id); const info=n?lineInfo(n.text):{first:'',more:false}, first=info.first.trim(); if(n&&confirm(`Eliminar esta nota?\n\n${(first.length>100?first.slice(0,100):first)+((first.length>100||info.more)?'…':'')}`)){ notes=notes.filter(x=>x.id!==id); deleted.add(id); saveDeleted(); persist(); render(); toast('Nota eliminada'); } }
+      function finish(){ if(!active) return; const n=notes.find(x=>x.id===active.dataset.id); if(n){ const t=noteText(active); if(n.text!==t){ n.text=t; n.updatedAt=new Date().toISOString(); } } active.contentEditable='false'; active=null; closeMenu(); scheduleSave(); render(); flushRemote(); }
+      function remove(id){ const n=notes.find(x=>x.id===id); const info=n?lineInfo(n.text):{first:'',more:false}, first=plain(info.first).trim(); if(n&&confirm(`Eliminar esta nota?\n\n${(first.length>100?first.slice(0,100):first)+((first.length>100||info.more)?'…':'')}`)){ notes=notes.filter(x=>x.id!==id); deleted.add(id); saveDeleted(); persist(); render(); toast('Nota eliminada'); } }
       function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
       function openMenu(x,y,target){ menuTarget=target; menu.style.left=Math.min(x,innerWidth-205)+'px'; menu.style.top=Math.min(y,innerHeight-190)+'px'; menu.classList.add('open'); }
       function closeMenu(){ menu.classList.remove('open'); menuTarget=null; }
@@ -391,7 +423,7 @@
       const savedTheme=localStorage.getItem('notas-theme'); if(savedTheme)document.documentElement.dataset.theme=savedTheme;
       $('#themeBtn').onclick=()=>{ const next=document.documentElement.dataset.theme==='dark'?'light':'dark'; document.documentElement.dataset.theme=next; localStorage.setItem('notas-theme',next); };
       document.addEventListener('keydown',e=>{ if(e.key==='F3'){ e.preventDefault(); nextResult(e.shiftKey); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); add(); } if(e.key==='Escape')finish(); });
-      window.addEventListener('beforeunload',()=>{ if(active){ const n=notes.find(x=>x.id===active.dataset.id); if(n)n.text=active.innerText; } localStorage.setItem(KEY,JSON.stringify(notes)); });
+      window.addEventListener('beforeunload',()=>{ if(active){ const n=notes.find(x=>x.id===active.dataset.id); if(n)n.text=noteText(active); } localStorage.setItem(KEY,JSON.stringify(notes)); });
       async function showSession(nextSession,{offerMigration=false}={}){
         session=nextSession;
         if(!session){
